@@ -1,6 +1,7 @@
 import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, type AiReview, type AiSummary, type Dashboard, type InternProfile, type Plan, type Report, type User } from "../api";
+import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
@@ -86,6 +87,7 @@ export function LeadDashboard({ user }: { user: User }) {
   return (
     <section className="flow">
       <Header eyebrow={user.categoryLabel || "Тимлид"} title={tab === "overview" ? "Активность стажеров" : "AI-сводка стажеров"} icon={<Users />} />
+      <AiAssistantDialog />
       <TelegramHelp user={user} />
 
       <section className="split">

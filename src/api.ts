@@ -147,6 +147,31 @@ export type InternProfile = {
   stats: AiSummary["interns"][number]["stats"];
 };
 
+export type PlanFitCandidate = {
+  user: User;
+  score: number;
+  matchReason: string;
+  risks: string[];
+  source: "same_department" | "other_department";
+  surveyAnalysis?: Survey["analysis"];
+  averageScore: number;
+  reportsCount: number;
+};
+
+export type PlanFitResponse = {
+  answer: string;
+  plan: {
+    id: string;
+    title: string;
+    category: Category;
+    categoryLabel: string;
+    adjustedDeadline: string;
+    milestones: string[];
+  } | null;
+  candidates: PlanFitCandidate[];
+  fallbackUsed: boolean;
+};
+
 const tokenKey = "dailyreport-token";
 const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 

@@ -1,6 +1,7 @@
 import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type AiSummary, type Category, type Dashboard, type InternProfile, type Plan, type Role, type User } from "../api";
+import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
@@ -84,6 +85,7 @@ export function AdminDashboard() {
   return (
     <section className="flow">
       <Header eyebrow="Админка" title="Контроль платформы" icon={<ShieldCheck />} />
+      <AiAssistantDialog plans={plans.map((plan) => ({ ...plan, categoryLabel: categoryOptions.find((category) => category.value === plan.category)?.label }))} />
 
       <div className="metrics">
         <Metric icon={<Users />} label="Пользователей" value={users.length} />

@@ -503,6 +503,85 @@ textarea {
   padding: 0 12px;
 }
 
+.assistantFab {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #10765a;
+  color: #ffffff;
+  box-shadow: 0 18px 40px rgba(16, 118, 90, 0.32);
+  z-index: 20;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  z-index: 30;
+}
+
+.assistantModal {
+  width: min(780px, 100%);
+  max-height: min(760px, 92vh);
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #dbe4ee;
+  box-shadow: 0 28px 90px rgba(8, 16, 28, 0.32);
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.modalHeader span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.iconButton {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  color: #334155;
+}
+
+.assistantResult,
+.assistantCandidates {
+  display: grid;
+  gap: 12px;
+}
+
+.candidateCard {
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  background: #f8fafc;
+}
+
 .inlineTabs {
   max-width: 360px;
   margin: 0;
