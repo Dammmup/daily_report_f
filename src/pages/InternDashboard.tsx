@@ -84,6 +84,25 @@ export function InternDashboard({ user }: { user: User }) {
                   <span key={item}>{item}</span>
                 ))}
               </div>
+              {plan.steps?.length ? (
+                <div className="planSteps">
+                  <h3>Шаги плана</h3>
+                  <div className="stepList">
+                    {plan.steps.map((step) => (
+                      <article className={step.assignedTo === user.id ? "stepItem assigned" : "stepItem"} key={step.id}>
+                        <div>
+                          <strong>{step.title}</strong>
+                          <p>{step.description}</p>
+                          <small>
+                            До {step.deadline} · {step.status === "done" ? "готово" : step.status === "in_progress" ? "в работе" : "ожидает"}
+                            {step.assignedTo === user.id ? " · назначено вам" : ""}
+                          </small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </>
           ) : (
             <p>Тимлид еще не утвердил план проекта для вашего департамента. Дэйлики можно писать, но они будут привязаны к плану после его создания.</p>

@@ -369,6 +369,66 @@ textarea {
   color: #10765a;
 }
 
+.planSteps {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.planSteps h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.stepList {
+  display: grid;
+  gap: 10px;
+}
+
+.stepList.compact {
+  margin-top: 12px;
+}
+
+.stepItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.stepItem.assigned {
+  border-color: #10765a;
+  background: #edf9f4;
+}
+
+.stepItem strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stepItem p {
+  margin: 0 0 6px;
+}
+
+.stepItem small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.stepControls,
+.stepAddForm {
+  display: grid;
+  gap: 8px;
+}
+
+.stepAddForm {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 150px 170px auto;
+  align-items: center;
+}
+
 .categoryGrid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -832,7 +892,9 @@ textarea {
   .split,
   .reportGrid,
   .internCardGrid,
-  .decisionGrid {
+  .decisionGrid,
+  .stepItem,
+  .stepAddForm {
     grid-template-columns: 1fr;
   }
 

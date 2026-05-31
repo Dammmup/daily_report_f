@@ -1,4 +1,4 @@
-import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, Save, Send, Sparkles, Users } from "lucide-react";
+import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, Plus, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Report, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
@@ -142,6 +142,7 @@ export function LeadDashboard({ user }: { user: User }) {
                   <span key={item}>{item}</span>
                 ))}
               </div>
+              <PlanStepsEditor plan={departmentPlan} interns={dashboard.interns} onChange={setDepartmentPlan} />
             </>
           ) : (
             <p>План еще не создан. После утверждения он появится у всех стажеров вашего департамента.</p>
@@ -160,6 +161,83 @@ export function LeadDashboard({ user }: { user: User }) {
 
       {tab === "overview" ? <Overview dashboard={dashboard} onOpenIntern={openIntern} /> : <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
     </section>
+  );
+}
+
+function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Dashboard["interns"]; onChange: (plan: Plan) => void }) {
+  const [draft, setDraft] = useState({ title: "", description: "", deadline: plan.adjustedDeadline, assignedTo: "" });
+  const [busy, setBusy] = useState(false);
+
+  async function addStep(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const saved = await api<Plan>("/api/department-plan/steps", {
+        method: "POST",
+        body: JSON.stringify(draft)
+      });
+      onChange(saved);
+      setDraft({ title: "", description: "", deadline: plan.adjustedDeadline, assignedTo: "" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateStep(stepId: string, patch: Partial<Plan["steps"][number]>) {
+    const saved = await api<Plan>(`/api/department-plan/steps/${stepId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch)
+    });
+    onChange(saved);
+  }
+
+  return (
+    <div className="planSteps">
+      <h3>Пошаговые действия</h3>
+      <div className="stepList">
+        {plan.steps?.map((step) => (
+          <article className="stepItem" key={step.id}>
+            <div>
+              <strong>{step.title}</strong>
+              <p>{step.description || "Описание можно уточнить вручную."}</p>
+              <small>Дедлайн: {step.deadline} · {step.source === "ai" ? "AI" : "добавлено тимлидом"}</small>
+            </div>
+            <div className="stepControls">
+              <select value={step.assignedTo || ""} onChange={(event) => updateStep(step.id, { assignedTo: event.target.value || undefined })}>
+                <option value="">Не назначен</option>
+                {interns.map((intern) => (
+                  <option key={intern.id} value={intern.id}>
+                    {intern.name}
+                  </option>
+                ))}
+              </select>
+              <select value={step.status} onChange={(event) => updateStep(step.id, { status: event.target.value as Plan["steps"][number]["status"] })}>
+                <option value="todo">Ожидает</option>
+                <option value="in_progress">В работе</option>
+                <option value="done">Готово</option>
+              </select>
+            </div>
+          </article>
+        ))}
+      </div>
+      <form className="stepAddForm" onSubmit={addStep}>
+        <input placeholder="Новый шаг" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+        <input placeholder="Описание" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+        <input type="date" value={draft.deadline} onChange={(event) => setDraft({ ...draft, deadline: event.target.value })} />
+        <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
+          <option value="">Без назначения</option>
+          {interns.map((intern) => (
+            <option key={intern.id} value={intern.id}>
+              {intern.name}
+            </option>
+          ))}
+        </select>
+        <button className="primaryButton" disabled={busy}>
+          <Plus size={16} />
+          {busy ? "Добавляю..." : "Добавить шаг"}
+        </button>
+      </form>
+    </div>
   );
 }
 

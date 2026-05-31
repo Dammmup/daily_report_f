@@ -65,6 +65,15 @@ export type Plan = {
   baseDeadline: string;
   adjustedDeadline: string;
   milestones: string[];
+  steps: {
+    id: string;
+    title: string;
+    description: string;
+    deadline: string;
+    status: "todo" | "in_progress" | "done";
+    assignedTo?: string;
+    source: "ai" | "manual";
+  }[];
   aiRationale: string;
   issues: {
     id: string;
@@ -73,6 +82,8 @@ export type Plan = {
     impactDays: number;
     status: "open" | "resolved";
   }[];
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type Report = {

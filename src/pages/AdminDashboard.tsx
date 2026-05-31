@@ -286,6 +286,18 @@ function PlansView({ plans }: { plans: AdminPlan[] }) {
               <span key={item}>{item}</span>
             ))}
           </div>
+          {plan.steps?.length ? (
+            <div className="stepList compact">
+              {plan.steps.map((step) => (
+                <article className="stepItem" key={step.id}>
+                  <div>
+                    <strong>{step.title}</strong>
+                    <small>До {step.deadline} · {step.status}</small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </article>
       ))}
       {!plans.length && <p>Тимлиды еще не создали планы проектов.</p>}
