@@ -771,3 +771,38 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+@media (min-width: 700px) and (max-width: 980px) {
+  .metrics,
+  .categoryGrid,
+  .reportGrid,
+  .internCardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .workspace {
+    padding: 28px 24px;
+  }
+
+  .loginPanel {
+    padding: 26px 22px;
+  }
+
+  .primaryButton,
+  .secondaryButton,
+  .ghostButton {
+    padding: 0 12px;
+    line-height: 1.2;
+  }
+
+  .assistantFab {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .modalBackdrop {
+    padding: 14px;
+  }
+}

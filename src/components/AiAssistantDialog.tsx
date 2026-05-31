@@ -33,9 +33,11 @@ export function AiAssistantDialog({ plans = [] }: { plans?: AssistantPlan[] }) {
 
   return (
     <>
-      <button className="assistantFab" onClick={() => setOpen(true)} title="AI-ассистент">
-        <Bot size={22} />
-      </button>
+      {!open && (
+        <button className="assistantFab" onClick={() => setOpen(true)} title="AI-ассистент">
+          <Bot size={22} />
+        </button>
+      )}
 
       {open && (
         <div className="modalBackdrop">
