@@ -1,9 +1,11 @@
 import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type AiSummary, type Category, type Dashboard, type InternProfile, type Plan, type Role, type User } from "../api";
+import { api, type AiSummary, type Category, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Role, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
+import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
+import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
 import { categoryOptions } from "../constants";
@@ -27,23 +29,26 @@ export function AdminDashboard() {
   const [users, setUsers] = useState<DraftUser[]>([]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
+  const [decisionCenter, setDecisionCenter] = useState<DecisionCenter | null>(null);
   const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
-  const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans">("users");
+  const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans">("overview");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   async function refresh() {
-    const [userList, dashboardData, summaryData, planList] = await Promise.all([
+    const [userList, dashboardData, summaryData, planList, decisionData] = await Promise.all([
       api<User[]>("/api/admin/users"),
       api<Dashboard>("/api/admin/dashboard"),
       api<AiSummary>("/api/admin/ai-summary"),
-      api<AdminPlan[]>("/api/admin/plans")
+      api<AdminPlan[]>("/api/admin/plans"),
+      api<DecisionCenter>("/api/admin/decision-center")
     ]);
     setUsers(userList.map((user) => ({ ...user, draftRole: user.role, draftCategory: user.category || "" })));
     setDashboard(dashboardData);
     setAiSummary(summaryData);
     setPlans(planList);
+    setDecisionCenter(decisionData);
   }
 
   useEffect(() => {
@@ -79,7 +84,7 @@ export function AdminDashboard() {
     setSelectedIntern(await api<InternProfile>(`/api/admin/interns/${id}`));
   }
 
-  if (loading || !dashboard || !aiSummary) return <ShellLoading />;
+  if (loading || !dashboard || !aiSummary || !decisionCenter) return <ShellLoading />;
   if (selectedIntern) return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
 
   return (
@@ -110,7 +115,7 @@ export function AdminDashboard() {
       </div>
 
       {tab === "users" && <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} />}
-      {tab === "overview" && <Overview dashboard={dashboard} onOpenIntern={openIntern} />}
+      {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} onOpenIntern={openIntern} />}
       {tab === "ai" && <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
       {tab === "plans" && <PlansView plans={plans} />}
     </section>
@@ -179,9 +184,11 @@ function UsersAccess({
   );
 }
 
-function Overview({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
+function Overview({ dashboard, decisionCenter, onOpenIntern }: { dashboard: Dashboard; decisionCenter: DecisionCenter; onOpenIntern: (id: string) => void }) {
   return (
     <>
+      <DecisionCenterPanel data={decisionCenter} />
+
       <div className="metrics">
         <Metric icon={<Users />} label="Стажеров" value={dashboard.stats.internsTotal} />
         <Metric icon={<CalendarCheck />} label="Отметились сегодня" value={dashboard.stats.checkedInToday} />
@@ -357,6 +364,8 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
 
       <section className="panel">
         <h2>История дэйликов</h2>
+        <h3>Матрица потенциала под план</h3>
+        <PlanFitMatrix profile={profile} />
         <ReportList reports={profile.reports} />
       </section>
     </section>

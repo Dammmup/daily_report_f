@@ -172,6 +172,32 @@ export type PlanFitResponse = {
   fallbackUsed: boolean;
 };
 
+export type DecisionCenter = {
+  scope: "department" | "all";
+  plan?: {
+    id: string;
+    title: string;
+    category: Category;
+    categoryLabel: string;
+    adjustedDeadline: string;
+    milestones: string[];
+  };
+  recommended: PlanFitCandidate[];
+  attention: {
+    user: User;
+    reason: string;
+    severity: "low" | "medium" | "high";
+  }[];
+  missingReports: User[];
+  blockerReports: {
+    user: User;
+    date: string;
+    blockers: string;
+    aiSummary?: string;
+  }[];
+  summary: string;
+};
+
 const tokenKey = "dailyreport-token";
 const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 

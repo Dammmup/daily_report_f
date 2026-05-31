@@ -1,9 +1,11 @@
 import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { api, type AiReview, type AiSummary, type Dashboard, type InternProfile, type Plan, type Report, type User } from "../api";
+import { api, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Report, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
+import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
+import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramHelp } from "../components/TelegramHelp";
@@ -23,6 +25,7 @@ type DigestSettings = {
 export function LeadDashboard({ user }: { user: User }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
+  const [decisionCenter, setDecisionCenter] = useState<DecisionCenter | null>(null);
   const [departmentPlan, setDepartmentPlan] = useState<Plan | null>(null);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
   const [tab, setTab] = useState<"overview" | "ai">("overview");
@@ -34,14 +37,16 @@ export function LeadDashboard({ user }: { user: User }) {
   const [savingPlan, setSavingPlan] = useState(false);
 
   async function refresh() {
-    const [dashboardData, summaryData, planData] = await Promise.all([
+    const [dashboardData, summaryData, planData, decisionData] = await Promise.all([
       api<Dashboard>("/api/dashboard"),
       api<AiSummary>("/api/ai-summary"),
-      api<Plan | null>("/api/my-plan")
+      api<Plan | null>("/api/my-plan"),
+      api<DecisionCenter>("/api/decision-center")
     ]);
     setDashboard(dashboardData);
     setAiSummary(summaryData);
     setDepartmentPlan(planData);
+    setDecisionCenter(decisionData);
     if (planData) {
       setPlanForm({
         title: planData.title,
@@ -78,7 +83,7 @@ export function LeadDashboard({ user }: { user: User }) {
     }
   }
 
-  if (!dashboard || !aiSummary) return <ShellLoading />;
+  if (!dashboard || !aiSummary || !decisionCenter) return <ShellLoading />;
 
   if (selectedIntern) {
     return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
@@ -89,6 +94,8 @@ export function LeadDashboard({ user }: { user: User }) {
       <Header eyebrow={user.categoryLabel || "Тимлид"} title={tab === "overview" ? "Активность стажеров" : "AI-сводка стажеров"} icon={<Users />} />
       <AiAssistantDialog />
       <TelegramHelp user={user} />
+
+      <DecisionCenterPanel data={decisionCenter} />
 
       <section className="split">
         <LeadDailyPanel />
@@ -462,6 +469,8 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
 
       <section className="panel">
         <h2>Дэйлики, прогнанные через AI</h2>
+        <h3>Матрица потенциала под план</h3>
+        <PlanFitMatrix profile={profile} />
         <div className="reportGrid">
           {profile.reports.map((report) => (
             <article className="reportCard" key={report.id}>

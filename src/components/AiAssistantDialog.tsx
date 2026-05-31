@@ -1,10 +1,18 @@
 import { Bot, Send, X } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { api, type Plan, type PlanFitResponse } from "../api";
 
 type AssistantPlan = Pick<Plan, "id" | "title" | "category" | "adjustedDeadline"> & {
   categoryLabel?: string;
 };
+
+const quickQuestions = [
+  "Кто сможет продумать архитектуру по текущему плану?",
+  "Кому лучше поручить логику и сложные задачи?",
+  "Кто сможет выполнить план без сильного риска по дедлайну?",
+  "Кто сейчас в зоне риска и почему?",
+  "Кого можно подтянуть из другого департамента?"
+];
 
 export function AiAssistantDialog({ plans = [] }: { plans?: AssistantPlan[] }) {
   const [open, setOpen] = useState(false);
@@ -12,6 +20,10 @@ export function AiAssistantDialog({ plans = [] }: { plans?: AssistantPlan[] }) {
   const [planId, setPlanId] = useState(plans[0]?.id || "");
   const [result, setResult] = useState<PlanFitResponse | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!planId && plans[0]?.id) setPlanId(plans[0].id);
+  }, [planId, plans]);
 
   async function ask(event: FormEvent) {
     event.preventDefault();
@@ -45,11 +57,19 @@ export function AiAssistantDialog({ plans = [] }: { plans?: AssistantPlan[] }) {
             <div className="modalHeader">
               <div>
                 <strong>AI-ассистент по плану</strong>
-                <span>Подбор стажеров по AI-профилям миниопроса</span>
+                <span>Подбор стажеров по AI-профилям миниопроса, дэйликам и баллам</span>
               </div>
               <button className="iconButton" onClick={() => setOpen(false)} title="Закрыть">
                 <X size={18} />
               </button>
+            </div>
+
+            <div className="quickQuestions">
+              {quickQuestions.map((item) => (
+                <button type="button" className="chip" key={item} onClick={() => setQuestion(item)}>
+                  {item}
+                </button>
+              ))}
             </div>
 
             <form className="form" onSubmit={ask}>
