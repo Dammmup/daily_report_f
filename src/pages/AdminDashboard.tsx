@@ -1,4 +1,4 @@
-import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
+import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, MapPin, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type AiSummary, type Category, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Role, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
@@ -292,7 +292,16 @@ function PlansView({ plans }: { plans: AdminPlan[] }) {
                 <article className="stepItem" key={step.id}>
                   <div>
                     <strong>{step.title}</strong>
-                    <small>До {step.deadline} · {step.status}</small>
+                    <small>
+                      До {step.deadline} ·{" "}
+                      {step.status === "done"
+                        ? "готово"
+                        : step.status === "in_progress"
+                          ? "в работе"
+                          : step.status === "canceled"
+                            ? "отменено"
+                            : "ожидает"}
+                    </small>
                   </div>
                 </article>
               ))}
@@ -320,6 +329,7 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
         <Metric icon={<BarChart3 />} label="AI продуктивность" value={`${profile.stats.averageScore}%`} />
         <Metric icon={<Sparkles />} label="AI отчетов" value={profile.stats.aiReviewedReports} />
         <Metric icon={<CalendarCheck />} label="Посещений" value={profile.stats.attendanceCount} />
+        <Metric icon={<MapPin />} label="В офисе" value={profile.stats.officeAttendanceCount || 0} />
         <Metric icon={<Users />} label="Блокеров" value={profile.stats.blockerReports} />
       </div>
 

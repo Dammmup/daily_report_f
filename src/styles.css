@@ -264,6 +264,18 @@ textarea {
   margin-bottom: 16px;
 }
 
+.officeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

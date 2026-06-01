@@ -64,7 +64,8 @@ export type Plan = {
   leadId?: string;
   title: string;
   category: Category;
-  status: "draft" | "approved";
+  version: number;
+  status: "draft" | "approved" | "completed" | "archived";
   startDate: string;
   baseDeadline: string;
   adjustedDeadline: string;
@@ -74,7 +75,7 @@ export type Plan = {
     title: string;
     description: string;
     deadline: string;
-    status: "todo" | "in_progress" | "done";
+    status: "todo" | "in_progress" | "done" | "canceled";
     assignedTo?: string;
     source: "ai" | "manual";
   }[];
@@ -88,6 +89,30 @@ export type Plan = {
   }[];
   createdAt?: string;
   updatedAt?: string;
+  completedAt?: string;
+};
+
+export type OfficeLocation = {
+  id: string;
+  category: Category;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  minWeeklyOfficeDays: number;
+};
+
+export type AttendanceSummary = {
+  officeLocation: OfficeLocation | null;
+  currentWeekOfficeDays: number;
+  minWeeklyOfficeDays: number;
+  requirementMet: boolean;
+  checkedInToday: boolean;
+  latest?: {
+    id: string;
+    date: string;
+    locationStatus: "unconfigured" | "verified" | "out_of_range";
+    distanceMeters?: number;
+  };
 };
 
 export type Report = {
@@ -123,6 +148,7 @@ export type Dashboard = {
     reportsCount: number;
     averageScore: number;
     activeToday: boolean;
+    officeAttendanceCount: number;
     survey?: Survey;
     plan?: Plan;
   })[];
@@ -143,6 +169,8 @@ export type AiSummary = {
       aiReviewedReports: number;
       averageScore: number;
       attendanceCount: number;
+      officeAttendanceCount: number;
+      currentWeekOfficeDays?: number;
       blockerReports: number;
       lastReportAt?: string;
     };

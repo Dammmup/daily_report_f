@@ -1,6 +1,6 @@
-import { Activity, BarChart3, Bot, CalendarCheck, Send, Target } from "lucide-react";
+import { Activity, BarChart3, Bot, CalendarCheck, MapPin, Send, Target } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api, type Plan, type Report, type User } from "../api";
+import { api, type AttendanceSummary, type Plan, type Report, type User } from "../api";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
@@ -8,14 +8,20 @@ import { ReportList } from "../components/ReportList";
 export function InternDashboard({ user }: { user: User }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [mood, setMood] = useState<"focused" | "normal" | "blocked">("focused");
   const [form, setForm] = useState({ yesterday: "", todayPlan: "", blockers: "" });
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
-    const [reportList, currentPlan] = await Promise.all([api<Report[]>("/api/reports"), api<Plan | null>("/api/my-plan")]);
+    const [reportList, currentPlan, attendanceData] = await Promise.all([
+      api<Report[]>("/api/reports"),
+      api<Plan | null>("/api/my-plan"),
+      api<AttendanceSummary>("/api/attendance/summary")
+    ]);
     setReports(reportList);
     setPlan(currentPlan);
+    setAttendanceSummary(attendanceData);
   }
 
   useEffect(() => {
@@ -23,7 +29,18 @@ export function InternDashboard({ user }: { user: User }) {
   }, []);
 
   async function checkIn() {
-    await api("/api/attendance/check-in", { method: "POST", body: JSON.stringify({ mood }) });
+    const position = attendanceSummary?.officeLocation
+      ? await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 }))
+      : null;
+
+    await api("/api/attendance/check-in", {
+      method: "POST",
+      body: JSON.stringify({
+        mood,
+        latitude: position?.coords.latitude,
+        longitude: position?.coords.longitude
+      })
+    });
     await refresh();
   }
 
@@ -51,6 +68,11 @@ export function InternDashboard({ user }: { user: User }) {
         <Metric icon={<CalendarCheck />} label="Отчетов" value={reports.length} />
         <Metric icon={<BarChart3 />} label="Средняя продуктивность" value={`${average}%`} />
         <Metric icon={<Target />} label="Дедлайн" value={plan?.adjustedDeadline || "не задан"} />
+        <Metric
+          icon={<MapPin />}
+          label="Офис за неделю"
+          value={`${attendanceSummary?.currentWeekOfficeDays || 0}/${attendanceSummary?.minWeeklyOfficeDays || 2}`}
+        />
         <Metric icon={<Bot />} label="Telegram" value={user.telegramLinked ? "привязан" : "ожидает"} />
       </div>
 
@@ -66,8 +88,16 @@ export function InternDashboard({ user }: { user: User }) {
           </div>
           <button className="primaryButton" onClick={checkIn}>
             <CalendarCheck size={18} />
-            Отметиться сегодня
+            {attendanceSummary?.officeLocation ? "Отметиться в офисе" : "Отметиться сегодня"}
           </button>
+          {attendanceSummary?.officeLocation ? (
+            <small>
+              {attendanceSummary.requirementMet ? "Норма офиса выполнена" : "Нужно быть в офисе минимум 2 раза в неделю"}
+              {attendanceSummary.latest?.distanceMeters ? ` · последнее расстояние ${attendanceSummary.latest.distanceMeters} м` : ""}
+            </small>
+          ) : (
+            <small>Офисная точка еще не задана тимлидом.</small>
+          )}
         </div>
 
         <div className="panel">
@@ -94,7 +124,14 @@ export function InternDashboard({ user }: { user: User }) {
                           <strong>{step.title}</strong>
                           <p>{step.description}</p>
                           <small>
-                            До {step.deadline} · {step.status === "done" ? "готово" : step.status === "in_progress" ? "в работе" : "ожидает"}
+                            До {step.deadline} ·{" "}
+                            {step.status === "done"
+                              ? "готово"
+                              : step.status === "in_progress"
+                                ? "в работе"
+                                : step.status === "canceled"
+                                  ? "отменено"
+                                  : "ожидает"}
                             {step.assignedTo === user.id ? " · назначено вам" : ""}
                           </small>
                         </div>

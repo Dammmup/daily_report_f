@@ -1,6 +1,6 @@
-import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, Plus, Save, Send, Sparkles, Users } from "lucide-react";
+import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { api, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Report, type User } from "../api";
+import { api, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -27,6 +27,8 @@ export function LeadDashboard({ user }: { user: User }) {
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [decisionCenter, setDecisionCenter] = useState<DecisionCenter | null>(null);
   const [departmentPlan, setDepartmentPlan] = useState<Plan | null>(null);
+  const [planHistory, setPlanHistory] = useState<Plan[]>([]);
+  const [officeLocation, setOfficeLocation] = useState<OfficeLocation | null>(null);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
   const [tab, setTab] = useState<"overview" | "ai">("overview");
   const [planForm, setPlanForm] = useState<PlanForm>({
@@ -37,16 +39,20 @@ export function LeadDashboard({ user }: { user: User }) {
   const [savingPlan, setSavingPlan] = useState(false);
 
   async function refresh() {
-    const [dashboardData, summaryData, planData, decisionData] = await Promise.all([
+    const [dashboardData, summaryData, planData, decisionData, plansData, officeData] = await Promise.all([
       api<Dashboard>("/api/dashboard"),
       api<AiSummary>("/api/ai-summary"),
       api<Plan | null>("/api/my-plan"),
-      api<DecisionCenter>("/api/decision-center")
+      api<DecisionCenter>("/api/decision-center"),
+      api<Plan[]>("/api/department-plans"),
+      api<OfficeLocation | null>("/api/attendance/office-location")
     ]);
     setDashboard(dashboardData);
     setAiSummary(summaryData);
     setDepartmentPlan(planData);
     setDecisionCenter(decisionData);
+    setPlanHistory(plansData);
+    setOfficeLocation(officeData);
     if (planData) {
       setPlanForm({
         title: planData.title,
@@ -54,6 +60,12 @@ export function LeadDashboard({ user }: { user: User }) {
         milestones: planData.milestones.join("\n")
       });
     }
+  }
+
+  async function completeDepartmentPlan() {
+    if (!departmentPlan) return;
+    await api<Plan>(`/api/department-plan/${departmentPlan.id}/complete`, { method: "POST" });
+    await refresh();
   }
 
   useEffect(() => {
@@ -102,6 +114,8 @@ export function LeadDashboard({ user }: { user: User }) {
         <TelegramDigestPanel />
       </section>
 
+      <OfficeLocationPanel location={officeLocation} onChange={setOfficeLocation} />
+
       <section className="split">
         <form className="panel form" onSubmit={submitDepartmentPlan}>
           <h2>План проекта департамента</h2>
@@ -134,7 +148,7 @@ export function LeadDashboard({ user }: { user: User }) {
               </div>
               <div className="status ok">
                 <CheckCircle2 size={14} />
-                {departmentPlan.status === "approved" ? "утвержден" : "черновик"}
+                План #{departmentPlan.version || 1} · {departmentPlan.status === "approved" ? "утвержден" : "черновик"}
               </div>
               <p>{departmentPlan.aiRationale}</p>
               <div className="timeline">
@@ -143,12 +157,17 @@ export function LeadDashboard({ user }: { user: User }) {
                 ))}
               </div>
               <PlanStepsEditor plan={departmentPlan} interns={dashboard.interns} onChange={setDepartmentPlan} />
+              <button className="ghostButton" type="button" onClick={completeDepartmentPlan}>
+                Завершить план и оставить в истории
+              </button>
             </>
           ) : (
             <p>План еще не создан. После утверждения он появится у всех стажеров вашего департамента.</p>
           )}
         </div>
       </section>
+
+      <PlanHistoryPanel plans={planHistory} />
 
       <div className="tabs inlineTabs">
         <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
@@ -215,6 +234,7 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
                 <option value="todo">Ожидает</option>
                 <option value="in_progress">В работе</option>
                 <option value="done">Готово</option>
+                <option value="canceled">Отменено</option>
               </select>
             </div>
           </article>
@@ -238,6 +258,113 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
         </button>
       </form>
     </div>
+  );
+}
+
+function OfficeLocationPanel({ location, onChange }: { location: OfficeLocation | null; onChange: (location: OfficeLocation) => void }) {
+  const [form, setForm] = useState({
+    latitude: location?.latitude ? String(location.latitude) : "",
+    longitude: location?.longitude ? String(location.longitude) : "",
+    radiusMeters: String(location?.radiusMeters || 150),
+    minWeeklyOfficeDays: String(location?.minWeeklyOfficeDays || 2)
+  });
+
+  useEffect(() => {
+    setForm({
+      latitude: location?.latitude ? String(location.latitude) : "",
+      longitude: location?.longitude ? String(location.longitude) : "",
+      radiusMeters: String(location?.radiusMeters || 150),
+      minWeeklyOfficeDays: String(location?.minWeeklyOfficeDays || 2)
+    });
+  }, [location]);
+
+  function useCurrentPosition() {
+    navigator.geolocation.getCurrentPosition((position) => {
+      setForm((current) => ({
+        ...current,
+        latitude: position.coords.latitude.toFixed(6),
+        longitude: position.coords.longitude.toFixed(6)
+      }));
+    });
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const saved = await api<OfficeLocation>("/api/attendance/office-location", {
+      method: "PUT",
+      body: JSON.stringify({
+        latitude: Number(form.latitude),
+        longitude: Number(form.longitude),
+        radiusMeters: Number(form.radiusMeters),
+        minWeeklyOfficeDays: Number(form.minWeeklyOfficeDays)
+      })
+    });
+    onChange(saved);
+  }
+
+  return (
+    <form className="panel form" onSubmit={save}>
+      <h2>Офисная точка посещаемости</h2>
+      <p className="mutedText">Стажер сможет отметиться в офисе только если браузер покажет координаты внутри заданного радиуса. Норма по умолчанию: 2 раза в неделю.</p>
+      <div className="officeGrid">
+        <label>
+          Широта
+          <input value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} placeholder="43.238949" />
+        </label>
+        <label>
+          Долгота
+          <input value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} placeholder="76.889709" />
+        </label>
+        <label>
+          Радиус, м
+          <input type="number" min={25} max={2000} value={form.radiusMeters} onChange={(event) => setForm({ ...form, radiusMeters: event.target.value })} />
+        </label>
+        <label>
+          Норма в неделю
+          <input type="number" min={1} max={7} value={form.minWeeklyOfficeDays} onChange={(event) => setForm({ ...form, minWeeklyOfficeDays: event.target.value })} />
+        </label>
+      </div>
+      <div className="buttonRow">
+        <button className="ghostButton" type="button" onClick={useCurrentPosition}>
+          <MapPin size={16} />
+          Взять мои координаты
+        </button>
+        <button className="primaryButton">
+          <Save size={18} />
+          Сохранить точку
+        </button>
+      </div>
+      {location ? (
+        <small>
+          Текущая точка: {location.latitude}, {location.longitude} · радиус {location.radiusMeters} м
+        </small>
+      ) : null}
+    </form>
+  );
+}
+
+function PlanHistoryPanel({ plans }: { plans: Plan[] }) {
+  if (!plans.length) return null;
+
+  return (
+    <section className="panel">
+      <h2>История планов департамента</h2>
+      <div className="stepList">
+        {plans.map((plan) => (
+          <article className="stepItem" key={plan.id}>
+            <div>
+              <strong>
+                #{plan.version || 1} · {plan.title}
+              </strong>
+              <p>
+                Дедлайн: {plan.adjustedDeadline} · статус: {plan.status === "completed" ? "завершен" : plan.status === "archived" ? "архив" : plan.status === "approved" ? "активен" : "черновик"}
+              </p>
+              <small>Шагов: {plan.steps?.length || 0}</small>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -475,6 +602,7 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
         <Metric icon={<BarChart3 />} label="AI продуктивность" value={`${profile.stats.averageScore}%`} />
         <Metric icon={<Sparkles />} label="AI отчетов" value={profile.stats.aiReviewedReports} />
         <Metric icon={<CalendarCheck />} label="Посещений" value={profile.stats.attendanceCount} />
+        <Metric icon={<MapPin />} label="В офисе" value={profile.stats.officeAttendanceCount || 0} />
         <Metric icon={<Users />} label="Блокеров" value={profile.stats.blockerReports} />
       </div>
 
