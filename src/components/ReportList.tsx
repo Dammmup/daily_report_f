@@ -1,6 +1,6 @@
 import type { Report } from "../api";
 
-export function ReportList({ reports }: { reports: Report[] }) {
+export function ReportList({ reports, onEdit }: { reports: Report[]; onEdit?: (report: Report) => void }) {
   return (
     <section className="panel">
       <h2>AI-сводка отчетов</h2>
@@ -12,11 +12,17 @@ export function ReportList({ reports }: { reports: Report[] }) {
               <span>{report.aiReview?.productivityScore || 0}%</span>
             </div>
             <p>{report.aiReview?.summary || report.yesterday}</p>
+            {report.linkedStepIds?.length ? <small>Связано с шагами плана: {report.linkedStepIds.length}</small> : null}
             <div className="tagLine">
               {(report.aiReview?.nextActions || []).slice(0, 2).map((action) => (
                 <span key={action}>{action}</span>
               ))}
             </div>
+            {onEdit && report.date === new Date().toISOString().slice(0, 10) ? (
+              <button className="ghostButton" type="button" onClick={() => onEdit(report)}>
+                Редактировать
+              </button>
+            ) : null}
             {report.aiReview?.deadlineImpactDays ? <small>Влияние на дедлайн: +{report.aiReview.deadlineImpactDays} дн.</small> : null}
           </article>
         ))}

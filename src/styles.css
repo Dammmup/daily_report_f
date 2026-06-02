@@ -85,6 +85,7 @@ button {
   display: grid;
   place-items: center;
   font-weight: 800;
+  object-fit: cover;
 }
 
 .avatar.small {
@@ -94,6 +95,44 @@ button {
 
 .workspace {
   padding: 32px;
+}
+
+.profileSettings {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.profileSettings form {
+  display: grid;
+  gap: 8px;
+}
+
+.fileButton {
+  min-height: 40px;
+  border: 1px dashed #cad5e2;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: #334155;
+  background: #f8fafc;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fileButton.compact {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.fileButton input {
+  display: none;
 }
 
 .flow {
@@ -276,6 +315,65 @@ textarea {
   gap: 10px;
 }
 
+.linkedStepsBox {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(16, 118, 90, 0.18);
+  border-radius: 8px;
+  background: rgba(16, 118, 90, 0.06);
+}
+
+.progressGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.progressCard {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.progressBar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(23, 32, 51, 0.1);
+}
+
+.progressBar i {
+  display: block;
+  height: 100%;
+  background: #10765a;
+}
+
+.checkLine {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.threadBox {
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid rgba(23, 32, 51, 0.08);
+}
+
+.inlineForm {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -299,7 +397,7 @@ textarea {
 }
 
 .adminTabs {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 0;
 }
 
@@ -511,6 +609,28 @@ textarea {
 .adminTable {
   display: grid;
   gap: 12px;
+}
+
+.auditList {
+  display: grid;
+  gap: 10px;
+}
+
+.auditItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #e8edf4;
+}
+
+.auditItem span,
+.auditItem time {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 4px;
 }
 
 .adminRow {
@@ -906,8 +1026,15 @@ textarea {
   .internCardGrid,
   .decisionGrid,
   .stepItem,
-  .stepAddForm {
+  .stepAddForm,
+  .inlineForm,
+  .officeGrid,
+  .auditItem {
     grid-template-columns: 1fr;
+  }
+
+  .auditItem {
+    display: grid;
   }
 
   .row {

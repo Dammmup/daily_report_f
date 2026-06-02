@@ -14,6 +14,8 @@ export type User = {
   category?: Category;
   categoryLabel?: string;
   avatarColor: string;
+  avatarUrl?: string;
+  bio?: string;
   firstLoginCompleted: boolean;
   emailVerified: boolean;
   telegramLinked: boolean;
@@ -78,6 +80,7 @@ export type Plan = {
     status: "todo" | "in_progress" | "done" | "canceled";
     assignedTo?: string;
     source: "ai" | "manual";
+    overdue?: boolean;
   }[];
   aiRationale: string;
   issues: {
@@ -122,6 +125,7 @@ export type Report = {
   yesterday: string;
   todayPlan: string;
   blockers: string;
+  linkedStepIds: string[];
   status?: "submitted" | "late";
   createdAt: string;
   aiReview?: AiReview;
@@ -142,6 +146,23 @@ export type Dashboard = {
       reports: number;
       averageScore: number;
     }[];
+    plans: {
+      id: string;
+      title: string;
+      category: Category;
+      categoryLabel: string;
+      adjustedDeadline: string;
+      progress: {
+        total: number;
+        done: number;
+        inProgress: number;
+        todo: number;
+        canceled: number;
+        overdue: number;
+        unassigned: number;
+        completionPercent: number;
+      };
+    }[];
   };
   interns: (User & {
     attendanceCount: number;
@@ -149,6 +170,7 @@ export type Dashboard = {
     averageScore: number;
     activeToday: boolean;
     officeAttendanceCount: number;
+    assignedOpenSteps: number;
     survey?: Survey;
     plan?: Plan;
   })[];
@@ -241,6 +263,37 @@ export type DecisionCenter = {
   summary: string;
 };
 
+export type RiskCenter = {
+  overdueSteps: { planId: string; planTitle: string; stepId: string; title: string; deadline: string; assignedTo?: string }[];
+  missingReports: User[];
+  weakInterns: (User & { averageScore?: number })[];
+  officeIssues: User[];
+};
+
+export type StepThread = {
+  comments: { id: string; text: string; user?: User; createdAt: string }[];
+  artifacts: { id: string; title: string; url: string; user?: User; createdAt: string }[];
+};
+
+export type AuditLog = {
+  id: string;
+  actorId?: string;
+  actor?: User;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  category?: Category;
+  message: string;
+  meta?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type UploadedFile = {
+  url: string;
+  pathname: string;
+  contentType: string;
+};
+
 const tokenKey = "dailyreport-token";
 const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 
@@ -272,4 +325,25 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   }
 
   return data as T;
+}
+
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function uploadFile(file: File, scope: "avatar" | "artifact") {
+  return api<UploadedFile>("/api/uploads", {
+    method: "POST",
+    body: JSON.stringify({
+      filename: file.name,
+      contentType: file.type || "application/octet-stream",
+      data: await fileToBase64(file),
+      scope
+    })
+  });
 }

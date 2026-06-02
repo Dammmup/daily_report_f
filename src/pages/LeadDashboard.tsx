@@ -1,6 +1,6 @@
 import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { api, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type User } from "../api";
+import { api, getToken, uploadFile, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type RiskCenter, type StepThread, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -26,6 +26,8 @@ export function LeadDashboard({ user }: { user: User }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [decisionCenter, setDecisionCenter] = useState<DecisionCenter | null>(null);
+  const [riskCenter, setRiskCenter] = useState<RiskCenter | null>(null);
+  const [weeklyReview, setWeeklyReview] = useState("");
   const [departmentPlan, setDepartmentPlan] = useState<Plan | null>(null);
   const [planHistory, setPlanHistory] = useState<Plan[]>([]);
   const [officeLocation, setOfficeLocation] = useState<OfficeLocation | null>(null);
@@ -39,13 +41,15 @@ export function LeadDashboard({ user }: { user: User }) {
   const [savingPlan, setSavingPlan] = useState(false);
 
   async function refresh() {
-    const [dashboardData, summaryData, planData, decisionData, plansData, officeData] = await Promise.all([
+    const [dashboardData, summaryData, planData, decisionData, plansData, officeData, riskData, weeklyData] = await Promise.all([
       api<Dashboard>("/api/dashboard"),
       api<AiSummary>("/api/ai-summary"),
       api<Plan | null>("/api/my-plan"),
       api<DecisionCenter>("/api/decision-center"),
       api<Plan[]>("/api/department-plans"),
-      api<OfficeLocation | null>("/api/attendance/office-location")
+      api<OfficeLocation | null>("/api/attendance/office-location"),
+      api<RiskCenter>("/api/risk-center"),
+      api<{ summary: string }>("/api/weekly-review")
     ]);
     setDashboard(dashboardData);
     setAiSummary(summaryData);
@@ -53,6 +57,8 @@ export function LeadDashboard({ user }: { user: User }) {
     setDecisionCenter(decisionData);
     setPlanHistory(plansData);
     setOfficeLocation(officeData);
+    setRiskCenter(riskData);
+    setWeeklyReview(weeklyData.summary);
     if (planData) {
       setPlanForm({
         title: planData.title,
@@ -66,6 +72,19 @@ export function LeadDashboard({ user }: { user: User }) {
     if (!departmentPlan) return;
     await api<Plan>(`/api/department-plan/${departmentPlan.id}/complete`, { method: "POST" });
     await refresh();
+  }
+
+  async function downloadCsv() {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/export.csv`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    });
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "dailyreport-export.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   useEffect(() => {
@@ -108,6 +127,8 @@ export function LeadDashboard({ user }: { user: User }) {
       <TelegramHelp user={user} />
 
       <DecisionCenterPanel data={decisionCenter} />
+      {riskCenter && <RiskCenterPanel data={riskCenter} weeklyReview={weeklyReview} />}
+      <PlanProgressPanel plans={dashboard.stats.plans} />
 
       <section className="split">
         <LeadDailyPanel />
@@ -169,6 +190,10 @@ export function LeadDashboard({ user }: { user: User }) {
 
       <PlanHistoryPanel plans={planHistory} />
 
+      <button className="secondaryButton" type="button" onClick={downloadCsv}>
+        Скачать CSV-отчет
+      </button>
+
       <div className="tabs inlineTabs">
         <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
           Обзор
@@ -179,6 +204,57 @@ export function LeadDashboard({ user }: { user: User }) {
       </div>
 
       {tab === "overview" ? <Overview dashboard={dashboard} onOpenIntern={openIntern} /> : <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
+    </section>
+  );
+}
+
+function RiskCenterPanel({ data, weeklyReview }: { data: RiskCenter; weeklyReview: string }) {
+  return (
+    <section className="panel">
+      <h2>Центр рисков</h2>
+      <div className="tagLine">
+        <span>Просрочено шагов: {data.overdueSteps.length}</span>
+        <span>Без дэйлика сегодня: {data.missingReports.length}</span>
+        <span>Низкая продуктивность: {data.weakInterns.length}</span>
+        <span>Нет офисных отметок: {data.officeIssues.length}</span>
+      </div>
+      {data.overdueSteps.slice(0, 5).map((step) => (
+        <small key={step.stepId}>
+          Просрочено: {step.title} · {step.planTitle} · дедлайн {step.deadline}
+        </small>
+      ))}
+      <p>{weeklyReview}</p>
+    </section>
+  );
+}
+
+function PlanProgressPanel({ plans }: { plans: Dashboard["stats"]["plans"] }) {
+  if (!plans.length) return null;
+
+  return (
+    <section className="panel">
+      <h2>Прогресс активного плана</h2>
+      <div className="progressGrid">
+        {plans.map((plan) => (
+          <article className="progressCard" key={plan.id}>
+            <div className="reportTop">
+              <strong>{plan.title}</strong>
+              <span>{plan.progress.completionPercent}%</span>
+            </div>
+            <div className="progressBar">
+              <i style={{ width: `${plan.progress.completionPercent}%` }} />
+            </div>
+            <div className="tagLine">
+              <span>Готово: {plan.progress.done}</span>
+              <span>В работе: {plan.progress.inProgress}</span>
+              <span>Ожидает: {plan.progress.todo}</span>
+              {plan.progress.overdue ? <span>Просрочено: {plan.progress.overdue}</span> : null}
+              {plan.progress.unassigned ? <span>Без исполнителя: {plan.progress.unassigned}</span> : null}
+            </div>
+            <small>Дедлайн: {plan.adjustedDeadline}</small>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -219,7 +295,7 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
             <div>
               <strong>{step.title}</strong>
               <p>{step.description || "Описание можно уточнить вручную."}</p>
-              <small>Дедлайн: {step.deadline} · {step.source === "ai" ? "AI" : "добавлено тимлидом"}</small>
+              <small>Дедлайн: {step.deadline} · {step.source === "ai" ? "AI" : "добавлено тимлидом"}{step.overdue ? " · просрочено" : ""}</small>
             </div>
             <div className="stepControls">
               <select value={step.assignedTo || ""} onChange={(event) => updateStep(step.id, { assignedTo: event.target.value || undefined })}>
@@ -237,6 +313,7 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
                 <option value="canceled">Отменено</option>
               </select>
             </div>
+            <StepThreadPanel stepId={step.id} />
           </article>
         ))}
       </div>
@@ -257,6 +334,75 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
           {busy ? "Добавляю..." : "Добавить шаг"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function StepThreadPanel({ stepId }: { stepId: string }) {
+  const [thread, setThread] = useState<StepThread | null>(null);
+  const [comment, setComment] = useState("");
+  const [artifact, setArtifact] = useState({ title: "", url: "" });
+  const [uploading, setUploading] = useState(false);
+
+  async function load() {
+    setThread(await api<StepThread>(`/api/department-plan/steps/${stepId}/thread`));
+  }
+
+  async function addComment(event: FormEvent) {
+    event.preventDefault();
+    await api(`/api/department-plan/steps/${stepId}/comments`, { method: "POST", body: JSON.stringify({ text: comment }) });
+    setComment("");
+    await load();
+  }
+
+  async function addArtifact(event: FormEvent) {
+    event.preventDefault();
+    await api(`/api/department-plan/steps/${stepId}/artifacts`, { method: "POST", body: JSON.stringify(artifact) });
+    setArtifact({ title: "", url: "" });
+    await load();
+  }
+
+  async function uploadArtifact(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadFile(file, "artifact");
+      setArtifact({ title: file.name, url: uploaded.url });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="threadBox">
+      <button className="ghostButton" type="button" onClick={load}>
+        Комментарии и артефакты
+      </button>
+      {thread ? (
+        <>
+          <div className="tagLine">
+            {thread.comments.slice(-3).map((item) => (
+              <span key={item.id}>{item.user?.name || "user"}: {item.text}</span>
+            ))}
+            {thread.artifacts.map((item) => (
+              <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
+            ))}
+          </div>
+          <form className="inlineForm" onSubmit={addComment}>
+            <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий к шагу" />
+            <button className="secondaryButton">Добавить</button>
+          </form>
+          <form className="inlineForm" onSubmit={addArtifact}>
+            <input value={artifact.title} onChange={(event) => setArtifact({ ...artifact, title: event.target.value })} placeholder="Артефакт" />
+            <input value={artifact.url} onChange={(event) => setArtifact({ ...artifact, url: event.target.value })} placeholder="https://..." />
+            <label className="fileButton compact">
+              {uploading ? "..." : "Файл"}
+              <input type="file" onChange={(event) => uploadArtifact(event.target.files?.[0])} disabled={uploading} />
+            </label>
+            <button className="secondaryButton">Прикрепить</button>
+          </form>
+        </>
+      ) : null}
     </div>
   );
 }

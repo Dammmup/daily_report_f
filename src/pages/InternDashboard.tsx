@@ -1,6 +1,6 @@
 import { Activity, BarChart3, Bot, CalendarCheck, MapPin, Send, Target } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api, type AttendanceSummary, type Plan, type Report, type User } from "../api";
+import { api, uploadFile, type AttendanceSummary, type Plan, type Report, type StepThread, type User } from "../api";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
@@ -10,7 +10,8 @@ export function InternDashboard({ user }: { user: User }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [mood, setMood] = useState<"focused" | "normal" | "blocked">("focused");
-  const [form, setForm] = useState({ yesterday: "", todayPlan: "", blockers: "" });
+  const [form, setForm] = useState({ yesterday: "", todayPlan: "", blockers: "", linkedStepIds: [] as string[] });
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
@@ -38,7 +39,8 @@ export function InternDashboard({ user }: { user: User }) {
       body: JSON.stringify({
         mood,
         latitude: position?.coords.latitude,
-        longitude: position?.coords.longitude
+        longitude: position?.coords.longitude,
+        accuracyMeters: position?.coords.accuracy
       })
     });
     await refresh();
@@ -48,8 +50,13 @@ export function InternDashboard({ user }: { user: User }) {
     event.preventDefault();
     setBusy(true);
     try {
-      await api("/api/reports", { method: "POST", body: JSON.stringify(form) });
-      setForm({ yesterday: "", todayPlan: "", blockers: "" });
+      if (editingReportId) {
+        await api(`/api/reports/${editingReportId}`, { method: "PATCH", body: JSON.stringify(form) });
+      } else {
+        await api("/api/reports", { method: "POST", body: JSON.stringify(form) });
+      }
+      setForm({ yesterday: "", todayPlan: "", blockers: "", linkedStepIds: [] });
+      setEditingReportId(null);
       await refresh();
     } finally {
       setBusy(false);
@@ -60,6 +67,11 @@ export function InternDashboard({ user }: { user: User }) {
     const scores = reports.map((report) => report.aiReview?.productivityScore || 0);
     return scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
   }, [reports]);
+
+  const assignedSteps = useMemo(
+    () => (plan?.steps || []).filter((step) => step.assignedTo === user.id && step.status !== "done" && step.status !== "canceled"),
+    [plan, user.id]
+  );
 
   return (
     <section className="flow">
@@ -132,9 +144,11 @@ export function InternDashboard({ user }: { user: User }) {
                                 : step.status === "canceled"
                                   ? "отменено"
                                   : "ожидает"}
+                            {step.overdue ? " · просрочено" : ""}
                             {step.assignedTo === user.id ? " · назначено вам" : ""}
                           </small>
                         </div>
+                        {step.assignedTo === user.id ? <InternStepThread stepId={step.id} /> : null}
                       </article>
                     ))}
                   </div>
@@ -148,7 +162,7 @@ export function InternDashboard({ user }: { user: User }) {
       </section>
 
       <form className="panel form" onSubmit={submitReport}>
-        <h2>Дневной отчет</h2>
+        <h2>{editingReportId ? "Редактирование дэйлика" : "Дневной отчет"}</h2>
         <label>
           Что сделано вчера
           <textarea value={form.yesterday} onChange={(event) => setForm({ ...form, yesterday: event.target.value })} />
@@ -161,13 +175,116 @@ export function InternDashboard({ user }: { user: User }) {
           Технические неполадки или блокеры
           <textarea value={form.blockers} onChange={(event) => setForm({ ...form, blockers: event.target.value })} />
         </label>
+        {assignedSteps.length ? (
+          <div className="linkedStepsBox">
+            <strong>К каким шагам относится дэйлик</strong>
+            {assignedSteps.map((step) => (
+              <label className="checkLine" key={step.id}>
+                <input
+                  type="checkbox"
+                  checked={form.linkedStepIds.includes(step.id)}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      linkedStepIds: event.target.checked ? [...form.linkedStepIds, step.id] : form.linkedStepIds.filter((id) => id !== step.id)
+                    })
+                  }
+                />
+                <span>
+                  {step.title}
+                  {step.overdue ? " · просрочено" : ""}
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : null}
         <button className="primaryButton" disabled={busy}>
           <Send size={18} />
-          {busy ? "AI проверяет..." : "Отправить отчет"}
+          {busy ? "AI проверяет..." : editingReportId ? "Сохранить изменения" : "Отправить отчет"}
         </button>
       </form>
 
-      <ReportList reports={reports} />
+      <ReportList
+        reports={reports}
+        onEdit={(report) => {
+          setEditingReportId(report.id);
+          setForm({
+            yesterday: report.yesterday,
+            todayPlan: report.todayPlan,
+            blockers: report.blockers,
+            linkedStepIds: report.linkedStepIds || []
+          });
+        }}
+      />
     </section>
+  );
+}
+
+function InternStepThread({ stepId }: { stepId: string }) {
+  const [thread, setThread] = useState<StepThread | null>(null);
+  const [comment, setComment] = useState("");
+  const [artifact, setArtifact] = useState({ title: "", url: "" });
+  const [uploading, setUploading] = useState(false);
+
+  async function load() {
+    setThread(await api<StepThread>(`/api/department-plan/steps/${stepId}/thread`));
+  }
+
+  async function addComment(event: FormEvent) {
+    event.preventDefault();
+    await api(`/api/department-plan/steps/${stepId}/comments`, { method: "POST", body: JSON.stringify({ text: comment }) });
+    setComment("");
+    await load();
+  }
+
+  async function addArtifact(event: FormEvent) {
+    event.preventDefault();
+    await api(`/api/department-plan/steps/${stepId}/artifacts`, { method: "POST", body: JSON.stringify(artifact) });
+    setArtifact({ title: "", url: "" });
+    await load();
+  }
+
+  async function uploadArtifact(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadFile(file, "artifact");
+      setArtifact({ title: file.name, url: uploaded.url });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="threadBox">
+      <button className="ghostButton" type="button" onClick={load}>
+        Обсуждение и артефакты
+      </button>
+      {thread ? (
+        <>
+          <div className="tagLine">
+            {thread.comments.slice(-3).map((item) => (
+              <span key={item.id}>{item.user?.name || "user"}: {item.text}</span>
+            ))}
+            {thread.artifacts.map((item) => (
+              <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
+            ))}
+          </div>
+          <form className="inlineForm" onSubmit={addComment}>
+            <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий по шагу" />
+            <button className="secondaryButton">Добавить</button>
+          </form>
+          <form className="inlineForm" onSubmit={addArtifact}>
+            <input value={artifact.title} onChange={(event) => setArtifact({ ...artifact, title: event.target.value })} placeholder="Название файла" />
+            <input value={artifact.url} onChange={(event) => setArtifact({ ...artifact, url: event.target.value })} placeholder="https://..." />
+            <label className="fileButton compact">
+              {uploading ? "..." : "Файл"}
+              <input type="file" onChange={(event) => uploadArtifact(event.target.files?.[0])} disabled={uploading} />
+            </label>
+            <button className="secondaryButton">Прикрепить</button>
+          </form>
+        </>
+      ) : null}
+    </div>
   );
 }

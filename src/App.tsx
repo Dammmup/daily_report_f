@@ -1,6 +1,6 @@
-import { LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api, clearToken, getToken, type User } from "./api";
+import { ImagePlus, LogOut, Settings } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { api, clearToken, getToken, uploadFile, type User } from "./api";
 import { ShellLoading } from "./components/ShellLoading";
 import { TelegramHelp } from "./components/TelegramHelp";
 import { AdminDashboard } from "./pages/AdminDashboard";
@@ -20,6 +20,7 @@ const roleLabels = {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -53,15 +54,18 @@ export function App() {
           </div>
         </div>
         <div className="profile">
-          <div className="avatar" style={{ background: session.user.avatarColor }}>
-            {session.user.name.slice(0, 1)}
-          </div>
+          {session.user.avatarUrl ? <img className="avatar" src={session.user.avatarUrl} alt={session.user.name} /> : <div className="avatar" style={{ background: session.user.avatarColor }}>{session.user.name.slice(0, 1)}</div>}
           <div>
             <strong>{session.user.name}</strong>
             <span>{session.user.categoryLabel || roleLabels[session.user.role]}</span>
           </div>
         </div>
         {session.user.role !== "admin" && <TelegramHelp user={session.user} compact />}
+        <button className="ghostButton" onClick={() => setProfileOpen((value) => !value)}>
+          <Settings size={18} />
+          Профиль
+        </button>
+        {profileOpen && <ProfileSettings user={session.user} onUser={(user) => setSession({ ...session, user })} />}
         <button className="ghostButton" onClick={logout}>
           <LogOut size={18} />
           Выйти
@@ -81,5 +85,61 @@ export function App() {
         )}
       </section>
     </main>
+  );
+}
+
+function ProfileSettings({ user, onUser }: { user: User; onUser: (user: User) => void }) {
+  const [form, setForm] = useState({ name: user.name, avatarColor: user.avatarColor, avatarUrl: user.avatarUrl || "", bio: user.bio || "" });
+  const [password, setPassword] = useState({ currentPassword: "", newPassword: "" });
+  const [message, setMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  async function saveProfile(event: FormEvent) {
+    event.preventDefault();
+    const result = await api<{ user: User }>("/api/me", { method: "PATCH", body: JSON.stringify(form) });
+    onUser(result.user);
+    setMessage("Профиль обновлен");
+  }
+
+  async function changePassword(event: FormEvent) {
+    event.preventDefault();
+    await api("/api/me/password", { method: "PATCH", body: JSON.stringify(password) });
+    setPassword({ currentPassword: "", newPassword: "" });
+    setMessage("Пароль изменен");
+  }
+
+  async function uploadAvatar(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadFile(file, "avatar");
+      setForm((current) => ({ ...current, avatarUrl: uploaded.url }));
+      setMessage("Аватар загружен. Сохраните профиль, чтобы закрепить его.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="profileSettings">
+      <form onSubmit={saveProfile}>
+        <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Имя" />
+        <label className="fileButton">
+          <ImagePlus size={16} />
+          {uploading ? "Загружаю..." : "Загрузить аватар"}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadAvatar(event.target.files?.[0])} disabled={uploading} />
+        </label>
+        <input value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="Ссылка на аватар" />
+        <input value={form.avatarColor} onChange={(event) => setForm({ ...form, avatarColor: event.target.value })} placeholder="#10765a" />
+        <textarea value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} placeholder="О себе" />
+        <button className="secondaryButton">Сохранить профиль</button>
+      </form>
+      <form onSubmit={changePassword}>
+        <input type="password" value={password.currentPassword} onChange={(event) => setPassword({ ...password, currentPassword: event.target.value })} placeholder="Текущий пароль" />
+        <input type="password" value={password.newPassword} onChange={(event) => setPassword({ ...password, newPassword: event.target.value })} placeholder="Новый пароль" />
+        <button className="secondaryButton">Сменить пароль</button>
+      </form>
+      {message && <small>{message}</small>}
+    </div>
   );
 }

@@ -1,6 +1,6 @@
-import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, MapPin, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
+import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type AiSummary, type Category, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Role, type User } from "../api";
+import { api, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Role, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -31,24 +31,27 @@ export function AdminDashboard() {
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [decisionCenter, setDecisionCenter] = useState<DecisionCenter | null>(null);
   const [plans, setPlans] = useState<AdminPlan[]>([]);
+  const [auditLog, setAuditLog] = useState<AuditLog[]>([]);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
-  const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans">("overview");
+  const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans" | "audit">("overview");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   async function refresh() {
-    const [userList, dashboardData, summaryData, planList, decisionData] = await Promise.all([
+    const [userList, dashboardData, summaryData, planList, decisionData, auditData] = await Promise.all([
       api<User[]>("/api/admin/users"),
       api<Dashboard>("/api/admin/dashboard"),
       api<AiSummary>("/api/admin/ai-summary"),
       api<AdminPlan[]>("/api/admin/plans"),
-      api<DecisionCenter>("/api/admin/decision-center")
+      api<DecisionCenter>("/api/admin/decision-center"),
+      api<AuditLog[]>("/api/audit-log")
     ]);
     setUsers(userList.map((user) => ({ ...user, draftRole: user.role, draftCategory: user.category || "" })));
     setDashboard(dashboardData);
     setAiSummary(summaryData);
     setPlans(planList);
     setDecisionCenter(decisionData);
+    setAuditLog(auditData);
   }
 
   useEffect(() => {
@@ -97,6 +100,7 @@ export function AdminDashboard() {
         <Metric icon={<UserCog />} label="Тимлидов" value={users.filter((user) => user.role === "lead").length} />
         <Metric icon={<Sparkles />} label="AI отчетов" value={dashboard.stats.aiReviewedReports} />
         <Metric icon={<ClipboardList />} label="Планов" value={plans.length} />
+        <Metric icon={<History />} label="Действий" value={auditLog.length} />
       </div>
 
       <div className="tabs adminTabs">
@@ -112,12 +116,36 @@ export function AdminDashboard() {
         <button className={tab === "plans" ? "active" : ""} onClick={() => setTab("plans")}>
           Планы
         </button>
+        <button className={tab === "audit" ? "active" : ""} onClick={() => setTab("audit")}>
+          Журнал
+        </button>
       </div>
 
       {tab === "users" && <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} />}
       {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} onOpenIntern={openIntern} />}
       {tab === "ai" && <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
       {tab === "plans" && <PlansView plans={plans} />}
+      {tab === "audit" && <AuditLogView logs={auditLog} />}
+    </section>
+  );
+}
+
+function AuditLogView({ logs }: { logs: AuditLog[] }) {
+  return (
+    <section className="panel tablePanel">
+      <h2>Журнал действий платформы</h2>
+      <div className="auditList">
+        {logs.map((log) => (
+          <article className="auditItem" key={log.id}>
+            <div>
+              <strong>{log.message}</strong>
+              <span>{log.actor?.name || "Система"} · {log.action} · {log.entityType}</span>
+            </div>
+            <time>{new Date(log.createdAt).toLocaleString()}</time>
+          </article>
+        ))}
+        {!logs.length && <p>Пока нет записей аудита.</p>}
+      </div>
     </section>
   );
 }
