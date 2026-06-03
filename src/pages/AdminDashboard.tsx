@@ -1,4 +1,4 @@
-import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Megaphone, Save, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
+import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Megaphone, Save, ShieldCheck, Sparkles, UserCog, Users, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type StepThread, type TelegramRecoveryBroadcastResult, type User } from "../api";
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
@@ -513,6 +513,7 @@ function PlansView({
   const [editingStep, setEditingStep] = useState<{ plan: AdminPlan; step: Plan["steps"][number] } | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<AdminPlan | null>(null);
   const [planList, setPlanList] = useState(plans);
+  const [viewingPlan, setViewingPlan] = useState<AdminPlan | null>(null);
 
   useEffect(() => {
     setPlanList(plans);
@@ -537,7 +538,7 @@ function PlansView({
       <AdminPlanCreateForm leads={leads} users={users} onCreated={onPlanCreate} />
       <div className="planBoard">
         {planList.map((plan) => (
-          <article className="internAiCard adminPlanCard" key={plan.id}>
+          <article className="internAiCard adminPlanCard" key={plan.id} onClick={() => setViewingPlan(plan)} style={{ cursor: "pointer" }}>
             <div className="planCardHeader">
               <div>
                 <strong>{plan.title}</strong>
@@ -545,64 +546,45 @@ function PlansView({
               </div>
               <div className="planHeaderActions">
                 <span className="status ok">{plan.status === "approved" ? "Утвержден" : "Черновик"}</span>
-                <button className="ghostButton dangerButton compactDanger" type="button" onClick={() => setDeletingPlan(plan)}>
+                <button
+                  className="ghostButton dangerButton compactDanger"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeletingPlan(plan);
+                  }}
+                >
                   Удалить
                 </button>
               </div>
             </div>
-            <div className="planMetaGrid">
+            <div className="planMetaGrid" style={{ gridTemplateColumns: "1fr 1fr" }}>
               <div>
                 <span>Тимлид</span>
                 <strong>{plan.lead?.name || "не найден"}</strong>
               </div>
               <div>
-                <span>Базовый дедлайн</span>
-                <strong>{plan.baseDeadline}</strong>
-              </div>
-              <div>
-                <span>Текущий дедлайн</span>
-                <strong>{plan.adjustedDeadline}</strong>
+                <span>Дата создания / Дедлайн</span>
+                <strong>{(plan as any).createdAt ? new Date((plan as any).createdAt).toLocaleDateString("ru-RU") : plan.baseDeadline}</strong>
               </div>
             </div>
-            <p className="planAiNote">{plan.aiRationale}</p>
-            <div className="timeline compactTimeline">
-              {plan.milestones.map((item, index) => (
-                <span key={`${item}-${index}`}>{index + 1}. {item}</span>
-              ))}
-            </div>
-            <AssignmentDraftPanel
-              plan={plan}
-              onApplied={(savedPlan) => {
-                const updatedPlan = { ...savedPlan, lead: plan.lead };
-                setPlanList((current) => current.map((item) => (item.id === plan.id ? updatedPlan : item)));
-                onPlanChange(updatedPlan);
-              }}
-            />
-            <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
-            {plan.steps?.length ? (
-              <div className="planTaskList">
-                {plan.steps.map((step, index) => (
-                  <article className="stepItem compactStep" key={step.id}>
-                    <button className="stepSummaryButton" type="button" onClick={() => setEditingStep({ plan, step })}>
-                      <span className="stepNumber">{index + 1}</span>
-                      <span className="stepSummaryText">
-                        <strong>{step.title}</strong>
-                        <span>{step.description || "Описание не заполнено"}</span>
-                      </span>
-                      <span className="stepMeta">
-                        <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
-                        <small>{step.deadline}{step.assignedTo ? " · назначен" : " · не назначен"}</small>
-                      </span>
-                    </button>
-                    <AdminStepMaterials stepId={step.id} />
-                  </article>
-                ))}
-              </div>
-            ) : null}
           </article>
         ))}
       </div>
       {!planList.length && <p>Планы проектов еще не созданы.</p>}
+      {viewingPlan ? (
+        <AdminPlanDetailsModal
+          plan={viewingPlan}
+          onClose={() => setViewingPlan(null)}
+          onPlanChange={(updatedPlan) => {
+            const planWithLead = { ...updatedPlan, lead: viewingPlan.lead };
+            setPlanList((current) => current.map((item) => (item.id === planWithLead.id ? planWithLead : item)));
+            setViewingPlan(planWithLead);
+            onPlanChange(planWithLead);
+          }}
+          onEditStep={(step) => setEditingStep({ plan: viewingPlan, step })}
+        />
+      ) : null}
       {editingStep ? (
         <AdminStepEditModal
           step={editingStep.step}
@@ -1071,5 +1053,84 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
         <ReportList reports={profile.reports} />
       </section>
     </section>
+  );
+}
+
+function AdminPlanDetailsModal({
+  plan,
+  onClose,
+  onPlanChange,
+  onEditStep
+}: {
+  plan: AdminPlan;
+  onClose: () => void;
+  onPlanChange: (plan: AdminPlan) => void;
+  onEditStep: (step: Plan["steps"][number]) => void;
+}) {
+  return (
+    <div className="modalOverlay" onClick={onClose}>
+      <div className="modalContent largeModal" onClick={(e) => e.stopPropagation()}>
+        <header className="modalHeader">
+          <h2>Детали плана: {plan.title}</h2>
+          <button className="iconButton" type="button" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </header>
+        <div className="modalBody flow">
+          <div className="planMetaGrid">
+            <div>
+              <span>Тимлид</span>
+              <strong>{plan.lead?.name || "не найден"}</strong>
+            </div>
+            <div>
+              <span>Базовый дедлайн</span>
+              <strong>{plan.baseDeadline}</strong>
+            </div>
+            <div>
+              <span>Текущий дедлайн</span>
+              <strong>{plan.adjustedDeadline}</strong>
+            </div>
+          </div>
+          <p className="planAiNote">{plan.aiRationale}</p>
+          <div className="timeline compactTimeline">
+            {plan.milestones.map((item, index) => (
+              <span key={`${item}-${index}`}>
+                {index + 1}. {item}
+              </span>
+            ))}
+          </div>
+          <AssignmentDraftPanel
+            plan={plan}
+            onApplied={(savedPlan) => {
+              onPlanChange(savedPlan);
+            }}
+          />
+          <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
+          {plan.steps?.length ? (
+            <div className="planTaskList">
+              {plan.steps.map((step, index) => (
+                <article className="stepItem compactStep" key={step.id}>
+                  <button className="stepSummaryButton" type="button" onClick={() => onEditStep(step)}>
+                    <span className="stepNumber">{index + 1}</span>
+                    <span className="stepSummaryText">
+                      <strong>{step.title}</strong>
+                      <span>{step.description || "Описание не заполнено"}</span>
+                    </span>
+                    <span className="stepMeta">
+                      <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
+                      <small>
+                        {step.deadline}
+                        {step.assignedTo ? " · назначен" : " · не назначен"}
+                      </small>
+                    </span>
+                  </button>
+                  <AdminStepMaterials stepId={step.id} />
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
