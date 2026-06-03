@@ -4,6 +4,7 @@ import { api, getToken, uploadFile, type AiReview, type AiSummary, type Dashboar
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
+import { ExternalResourcesPanel } from "../components/ExternalResourcesPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
@@ -261,6 +262,12 @@ export function LeadDashboard({ user }: { user: User }) {
                   setDepartmentPlan(savedPlan);
                   void Promise.all([loadPlans(true), refreshDashboard()]);
                 }}
+              />
+              <ExternalResourcesPanel
+                linkedEntityType="plan"
+                linkedEntityId={departmentPlan.id}
+                planId={departmentPlan.id}
+                category={departmentPlan.category}
               />
               <PlanStepsEditor plan={departmentPlan} interns={dashboard.interns} onChange={setDepartmentPlan} />
               <button className="ghostButton" type="button" onClick={completeDepartmentPlan}>

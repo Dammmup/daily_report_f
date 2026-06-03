@@ -22,6 +22,31 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [oauthToast, setOauthToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // Обработка OAuth redirect params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const integration = params.get("integration");
+    const status = params.get("status");
+    if (integration && status) {
+      const providerNames: Record<string, string> = {
+        google_drive: "Google Drive",
+        notion: "Notion",
+        trello: "Trello"
+      };
+      const label = providerNames[integration] || integration;
+      if (status === "connected") {
+        setOauthToast({ message: `${label} успешно подключен!`, type: "success" });
+      } else {
+        const errorMessage = params.get("message") || "Не удалось подключить";
+        setOauthToast({ message: `${label}: ${errorMessage}`, type: "error" });
+      }
+      // Очищаем URL params
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -63,6 +88,7 @@ export function App() {
 
   return (
     <main className="app">
+      {oauthToast && <OAuthToast message={oauthToast.message} type={oauthToast.type} onClose={() => setOauthToast(null)} />}
       <aside className="sidebar">
         <div className="brand">
           <div className="brandMark">DR</div>
@@ -184,6 +210,21 @@ function ProfileSettings({ user, onUser }: { user: User; onUser: (user: User) =>
         <button className="secondaryButton">Сменить пароль</button>
       </form>
       {message && <small>{message}</small>}
+    </div>
+  );
+}
+
+function OAuthToast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 6000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`oauthToast ${type}`} onClick={onClose}>
+      <span>{type === "success" ? "✅" : "❌"}</span>
+      <span>{message}</span>
+      <button type="button" className="oauthToastClose">×</button>
     </div>
   );
 }

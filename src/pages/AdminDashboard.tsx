@@ -4,6 +4,7 @@ import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Das
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
+import { ExternalResourcesPanel } from "../components/ExternalResourcesPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
@@ -577,6 +578,7 @@ function PlansView({
                 onPlanChange(updatedPlan);
               }}
             />
+            <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
             {plan.steps?.length ? (
               <div className="planTaskList">
                 {plan.steps.map((step, index) => (

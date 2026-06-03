@@ -291,6 +291,74 @@ export type AssignmentApplyResult = {
   skipped: { stepId: string; reason: string }[];
 };
 
+export type IntegrationProvider = "google_drive" | "trello" | "notion" | "manual";
+
+export type ExternalResourceAiCheck = {
+  id: string;
+  resourceId: string;
+  planId: string;
+  createdBy: string;
+  matchScore: number;
+  riskLevel: "low" | "medium" | "high";
+  summary: string;
+  matchedSteps: string[];
+  missingRequirements: string[];
+  suggestedActions: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExternalResource = {
+  id: string;
+  provider: IntegrationProvider;
+  externalId?: string;
+  externalUrl: string;
+  title: string;
+  resourceType: "folder" | "document" | "board" | "card" | "page" | "database" | "other";
+  linkedEntityType: "department" | "plan" | "step";
+  linkedEntityId: string;
+  category?: Category;
+  planId?: string;
+  stepId?: string;
+  contentSummary?: string;
+  lastAiCheckAt?: string;
+  latestAiCheck?: ExternalResourceAiCheck | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type IntegrationConnection = {
+  id: string;
+  provider: IntegrationProvider;
+  category?: Category;
+  status: "configured" | "needs_reauth" | "disabled";
+  externalAccountId?: string;
+  externalAccountName?: string;
+  scopes: string[];
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type IntegrationStatus = {
+  providers: {
+    provider: Exclude<IntegrationProvider, "manual">;
+    connected: boolean;
+    oauthConfigured: boolean;
+    authMode: "oauth" | "manual_token";
+    mode: "oauth_resource_linking";
+    connection?: IntegrationConnection | null;
+  }[];
+};
+
+export type ProviderExternalResource = {
+  provider: Exclude<IntegrationProvider, "manual">;
+  externalId: string;
+  title: string;
+  externalUrl: string;
+  resourceType: ExternalResource["resourceType"];
+};
+
 export type DecisionCenter = {
   scope: "department" | "all";
   plan?: {
