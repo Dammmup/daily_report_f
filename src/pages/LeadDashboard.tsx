@@ -41,9 +41,8 @@ export function LeadDashboard({ user }: { user: User }) {
   const [savingPlan, setSavingPlan] = useState(false);
 
   async function refresh() {
-    const [dashboardData, summaryData, planData, decisionData, plansData, officeData, riskData, weeklyData] = await Promise.all([
+    const [dashboardData, planData, decisionData, plansData, officeData, riskData, weeklyData] = await Promise.all([
       api<Dashboard>("/api/dashboard"),
-      api<AiSummary>("/api/ai-summary"),
       api<Plan | null>("/api/my-plan"),
       api<DecisionCenter>("/api/decision-center"),
       api<Plan[]>("/api/department-plans"),
@@ -52,7 +51,6 @@ export function LeadDashboard({ user }: { user: User }) {
       api<{ summary: string }>("/api/weekly-review")
     ]);
     setDashboard(dashboardData);
-    setAiSummary(summaryData);
     setDepartmentPlan(planData);
     setDecisionCenter(decisionData);
     setPlanHistory(plansData);
@@ -91,6 +89,12 @@ export function LeadDashboard({ user }: { user: User }) {
     refresh();
   }, []);
 
+  useEffect(() => {
+    if (tab === "ai" && !aiSummary) {
+      void api<AiSummary>("/api/ai-summary").then(setAiSummary);
+    }
+  }, [tab, aiSummary]);
+
   async function openIntern(id: string) {
     setSelectedIntern(await api<InternProfile>(`/api/interns/${id}`));
   }
@@ -114,7 +118,7 @@ export function LeadDashboard({ user }: { user: User }) {
     }
   }
 
-  if (!dashboard || !aiSummary || !decisionCenter) return <ShellLoading />;
+  if (!dashboard || !decisionCenter) return <ShellLoading />;
 
   if (selectedIntern) {
     return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
@@ -203,7 +207,7 @@ export function LeadDashboard({ user }: { user: User }) {
         </button>
       </div>
 
-      {tab === "overview" ? <Overview dashboard={dashboard} onOpenIntern={openIntern} /> : <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
+      {tab === "overview" ? <Overview dashboard={dashboard} onOpenIntern={openIntern} /> : aiSummary ? <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} /> : <ShellLoading />}
     </section>
   );
 }

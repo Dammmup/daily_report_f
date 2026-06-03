@@ -1,6 +1,6 @@
-import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Save, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
+import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Megaphone, Save, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type StepThread, type User } from "../api";
+import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type StepThread, type TelegramRecoveryBroadcastResult, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -40,30 +40,70 @@ export function AdminDashboard() {
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
   const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans" | "office" | "audit">("overview");
   const [loading, setLoading] = useState(true);
+  const [loadedTabs, setLoadedTabs] = useState<Record<typeof tab, boolean>>({
+    users: false,
+    overview: false,
+    ai: false,
+    plans: false,
+    office: false,
+    audit: false
+  });
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [telegramBroadcast, setTelegramBroadcast] = useState<TelegramRecoveryBroadcastResult | null>(null);
+  const [telegramBroadcastBusy, setTelegramBroadcastBusy] = useState(false);
 
-  async function refresh() {
-    const [userList, dashboardData, summaryData, planList, decisionData, officeData, auditData] = await Promise.all([
-      api<User[]>("/api/admin/users"),
-      api<Dashboard>("/api/admin/dashboard"),
-      api<AiSummary>("/api/admin/ai-summary"),
-      api<AdminPlan[]>("/api/admin/plans"),
-      api<DecisionCenter>("/api/admin/decision-center"),
-      api<OfficeLocation[]>("/api/attendance/office-locations"),
-      api<AuditLog[]>("/api/audit-log")
-    ]);
-    setUsers(userList.map((user) => ({ ...user, draftRole: user.role, draftCategory: user.category || "" })));
+  async function loadOverview(force = false) {
+    if (!force && dashboard && decisionCenter) return;
+    const [dashboardData, decisionData] = await Promise.all([api<Dashboard>("/api/admin/dashboard"), api<DecisionCenter>("/api/admin/decision-center")]);
     setDashboard(dashboardData);
-    setAiSummary(summaryData);
-    setPlans(planList);
     setDecisionCenter(decisionData);
-    setOfficeLocations(officeData);
-    setAuditLog(auditData);
+    setLoadedTabs((current) => ({ ...current, overview: true }));
+  }
+
+  async function loadUsers(force = false) {
+    if (!force && loadedTabs.users) return;
+    const userList = await api<User[]>("/api/admin/users");
+    setUsers(userList.map((user) => ({ ...user, draftRole: user.role, draftCategory: user.category || "" })));
+    setLoadedTabs((current) => ({ ...current, users: true }));
+  }
+
+  async function loadAiSummary(force = false) {
+    if (!force && aiSummary) return;
+    setAiSummary(await api<AiSummary>("/api/admin/ai-summary"));
+    setLoadedTabs((current) => ({ ...current, ai: true }));
+  }
+
+  async function loadPlans(force = false) {
+    if (!force && loadedTabs.plans) return;
+    const [planList, userList] = await Promise.all([api<AdminPlan[]>("/api/admin/plans"), users.length ? Promise.resolve(users) : api<User[]>("/api/admin/users")]);
+    setPlans(planList);
+    if (!users.length) setUsers(userList.map((user) => ({ ...user, draftRole: user.role, draftCategory: user.category || "" })));
+    setLoadedTabs((current) => ({ ...current, plans: true, users: true }));
+  }
+
+  async function loadOfficeLocations(force = false) {
+    if (!force && loadedTabs.office) return;
+    setOfficeLocations(await api<OfficeLocation[]>("/api/attendance/office-locations"));
+    setLoadedTabs((current) => ({ ...current, office: true }));
+  }
+
+  async function loadAuditLog(force = false) {
+    if (!force && loadedTabs.audit) return;
+    setAuditLog(await api<AuditLog[]>("/api/audit-log"));
+    setLoadedTabs((current) => ({ ...current, audit: true }));
   }
 
   useEffect(() => {
-    refresh().finally(() => setLoading(false));
+    loadOverview().finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (tab === "users") void loadUsers();
+    if (tab === "ai") void loadAiSummary();
+    if (tab === "plans") void loadPlans();
+    if (tab === "office") void loadOfficeLocations();
+    if (tab === "audit") void loadAuditLog();
+  }, [tab]);
 
   function patchDraft(id: string, patch: Partial<DraftUser>) {
     setUsers((current) => current.map((user) => (user.id === id ? { ...user, ...patch } : user)));
@@ -84,7 +124,8 @@ export function AdminDashboard() {
         draftRole: result.user.role,
         draftCategory: result.user.category || ""
       });
-      await refresh();
+      await loadUsers(true);
+      await loadOverview(true);
     } finally {
       setSavingId(null);
     }
@@ -94,7 +135,16 @@ export function AdminDashboard() {
     setSelectedIntern(await api<InternProfile>(`/api/admin/interns/${id}`));
   }
 
-  if (loading || !dashboard || !aiSummary || !decisionCenter) return <ShellLoading />;
+  async function runTelegramRecoveryBroadcast() {
+    setTelegramBroadcastBusy(true);
+    try {
+      setTelegramBroadcast(await api<TelegramRecoveryBroadcastResult>("/api/admin/telegram/recovery-broadcast", { method: "POST" }));
+    } finally {
+      setTelegramBroadcastBusy(false);
+    }
+  }
+
+  if (loading || !dashboard || !decisionCenter) return <ShellLoading />;
   if (selectedIntern) return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
 
   return (
@@ -103,12 +153,29 @@ export function AdminDashboard() {
       <AiAssistantDialog plans={plans.map((plan) => ({ ...plan, categoryLabel: categoryOptions.find((category) => category.value === plan.category)?.label }))} />
 
       <div className="metrics">
-        <Metric icon={<Users />} label="Пользователей" value={users.length} />
-        <Metric icon={<UserCog />} label="Тимлидов" value={users.filter((user) => user.role === "lead").length} />
+        <Metric icon={<Users />} label={users.length ? "Пользователей" : "Стажеров"} value={users.length || dashboard.stats.internsTotal} />
+        <Metric icon={<UserCog />} label="Тимлидов" value={users.length ? users.filter((user) => user.role === "lead").length : "откр. вкладку"} />
         <Metric icon={<Sparkles />} label="AI отчетов" value={dashboard.stats.aiReviewedReports} />
-        <Metric icon={<ClipboardList />} label="Планов" value={plans.length} />
-        <Metric icon={<History />} label="Действий" value={auditLog.length} />
+        <Metric icon={<ClipboardList />} label="Планов" value={plans.length || dashboard.stats.plans.length} />
+        <Metric icon={<History />} label="Действий" value={auditLog.length || "по вкладке"} />
       </div>
+
+      <section className="telegramControlPanel">
+        <div>
+          <strong>Аварийная Telegram-рассылка</strong>
+          <p>Если cron не сработал, отправьте мотивацию во все группы и досылайте анонсы активных планов без Telegram-уведомления.</p>
+          {telegramBroadcast && (
+            <small>
+              Групп: {telegramBroadcast.groups} · мотиваций: {telegramBroadcast.motivationMessages} · планов к проверке: {telegramBroadcast.pendingPlans} ·
+              анонсировано планов: {telegramBroadcast.announcedPlans} · сообщений о планах: {telegramBroadcast.planAnnouncementMessages}
+            </small>
+          )}
+        </div>
+        <button className="primaryButton" type="button" onClick={runTelegramRecoveryBroadcast} disabled={telegramBroadcastBusy}>
+          <Megaphone size={18} />
+          {telegramBroadcastBusy ? "Отправляю..." : "Разослать в Telegram"}
+        </button>
+      </section>
 
       <div className="tabs adminTabs">
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
@@ -131,19 +198,23 @@ export function AdminDashboard() {
         </button>
       </div>
 
-      {tab === "users" && <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} />}
+      {tab === "users" && (loadedTabs.users ? <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} /> : <ShellLoading />)}
       {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} onOpenIntern={openIntern} />}
-      {tab === "ai" && <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
+      {tab === "ai" && (aiSummary ? <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} /> : <ShellLoading />)}
       {tab === "plans" && (
-        <PlansView
-          plans={plans}
-          users={users}
-          onPlanChange={(updated) => setPlans((current) => current.map((plan) => (plan.id === updated.id ? { ...updated, lead: updated.lead || plan.lead } : plan)))}
-          onPlanCreate={(created) => setPlans((current) => [created, ...current.filter((plan) => plan.id !== created.id)])}
-        />
+        loadedTabs.plans ? (
+          <PlansView
+            plans={plans}
+            users={users}
+            onPlanChange={(updated) => setPlans((current) => current.map((plan) => (plan.id === updated.id ? { ...updated, lead: updated.lead || plan.lead } : plan)))}
+            onPlanCreate={(created) => setPlans((current) => [created, ...current.filter((plan) => plan.id !== created.id)])}
+          />
+        ) : (
+          <ShellLoading />
+        )
       )}
-      {tab === "office" && <AdminOfficeLocationsView locations={officeLocations} onSaved={refresh} />}
-      {tab === "audit" && <AuditLogView logs={auditLog} />}
+      {tab === "office" && (loadedTabs.office ? <AdminOfficeLocationsView locations={officeLocations} onSaved={() => loadOfficeLocations(true)} /> : <ShellLoading />)}
+      {tab === "audit" && (loadedTabs.audit ? <AuditLogView logs={auditLog} /> : <ShellLoading />)}
     </section>
   );
 }

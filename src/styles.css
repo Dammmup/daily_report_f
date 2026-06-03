@@ -348,6 +348,34 @@ textarea {
   gap: 10px;
 }
 
+.telegramControlPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(16, 118, 90, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(23, 32, 51, 0.06);
+}
+
+.telegramControlPanel div {
+  display: grid;
+  gap: 6px;
+}
+
+.telegramControlPanel p {
+  max-width: 760px;
+  margin: 0;
+  color: #526070;
+}
+
+.telegramControlPanel small {
+  color: #10765a;
+  font-weight: 700;
+}
+
 .linkedStepsBox {
   display: grid;
   gap: 10px;
@@ -1373,6 +1401,11 @@ textarea {
 
   .adminRow {
     grid-template-columns: 1fr;
+  }
+
+  .telegramControlPanel {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .stepSummaryButton {

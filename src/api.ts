@@ -99,7 +99,16 @@ export type Plan = {
   }[];
   createdAt?: string;
   updatedAt?: string;
+  telegramAnnouncedAt?: string;
   completedAt?: string;
+};
+
+export type TelegramRecoveryBroadcastResult = {
+  groups: number;
+  motivationMessages: number;
+  pendingPlans: number;
+  announcedPlans: number;
+  planAnnouncementMessages: number;
 };
 
 export type OfficeLocation = {
