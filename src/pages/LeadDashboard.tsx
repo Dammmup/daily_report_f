@@ -99,17 +99,27 @@ export function LeadDashboard({ user }: { user: User }) {
     setSelectedIntern(await api<InternProfile>(`/api/interns/${id}`));
   }
 
+  function parseMilestones() {
+    const text = planForm.milestones.trim();
+    const byStages = text
+      .split(/(?=Этап\s*\d+\s*:)/gi)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (byStages.length > 1) return byStages;
+
+    return text
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
   async function submitDepartmentPlan(event: FormEvent) {
     event.preventDefault();
     setSavingPlan(true);
     try {
-      const milestones = planForm.milestones
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean);
       const saved = await api<Plan>("/api/department-plan", {
         method: "POST",
-        body: JSON.stringify({ ...planForm, milestones })
+        body: JSON.stringify({ ...planForm, milestones: parseMilestones() })
       });
       setDepartmentPlan(saved);
       await refresh();

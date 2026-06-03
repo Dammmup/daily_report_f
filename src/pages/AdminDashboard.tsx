@@ -636,10 +636,17 @@ function AdminPlanCreateForm({ leads, users, onCreated }: { leads: DraftUser[]; 
   }
 
   function parseMilestones() {
-    return form.milestones
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean);
+    const text = form.milestones.trim();
+    const byStages = text
+      .split(/(?=Этап\s*\d+\s*:)/gi)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (byStages.length > 1) return byStages;
+
+    return text
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   function patchPreviewStep(clientId: string, patch: Partial<AdminPreviewStep>) {
