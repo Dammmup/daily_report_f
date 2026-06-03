@@ -144,7 +144,7 @@ export function LeadDashboard({ user }: { user: User }) {
       <section className="split">
         <form className="panel form" onSubmit={submitDepartmentPlan}>
           <h2>План проекта департамента</h2>
-          <p className="mutedText">План создается и утверждается только для вашего департамента. Стажеры этого департамента будут писать дэйлики по нему.</p>
+          <p className="mutedText">План создается и утверждается для вашего департамента отдельной версией. Предыдущие планы остаются в истории.</p>
           <label>
             Название
             <input value={planForm.title} onChange={(event) => setPlanForm({ ...planForm, title: event.target.value })} />
@@ -159,7 +159,7 @@ export function LeadDashboard({ user }: { user: User }) {
           </label>
           <button className="primaryButton" disabled={savingPlan}>
             <Save size={18} />
-            {savingPlan ? "Сохраняю..." : departmentPlan ? "Обновить утвержденный план" : "Создать и утвердить план"}
+            {savingPlan ? "Сохраняю..." : departmentPlan ? "Создать новую версию плана" : "Создать и утвердить план"}
           </button>
         </form>
 
