@@ -1,6 +1,6 @@
 import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Save, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { api, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type User } from "../api";
+import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type StepThread, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -17,6 +17,10 @@ type DraftUser = User & {
 
 type AdminPlan = Plan & {
   lead?: User;
+};
+
+type AdminPreviewStep = Omit<Plan["steps"][number], "id" | "overdue"> & {
+  clientId: string;
 };
 
 const roleLabels: Record<Role, string> = {
@@ -130,7 +134,14 @@ export function AdminDashboard() {
       {tab === "users" && <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} />}
       {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} onOpenIntern={openIntern} />}
       {tab === "ai" && <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
-      {tab === "plans" && <PlansView plans={plans} />}
+      {tab === "plans" && (
+        <PlansView
+          plans={plans}
+          users={users}
+          onPlanChange={(updated) => setPlans((current) => current.map((plan) => (plan.id === updated.id ? { ...updated, lead: updated.lead || plan.lead } : plan)))}
+          onPlanCreate={(created) => setPlans((current) => [created, ...current.filter((plan) => plan.id !== created.id)])}
+        />
+      )}
       {tab === "office" && <AdminOfficeLocationsView locations={officeLocations} onSaved={refresh} />}
       {tab === "audit" && <AuditLogView logs={auditLog} />}
     </section>
@@ -414,51 +425,483 @@ function AiSummaryView({ summary, onOpenIntern }: { summary: AiSummary; onOpenIn
   );
 }
 
-function PlansView({ plans }: { plans: AdminPlan[] }) {
+function PlansView({
+  plans,
+  users,
+  onPlanChange,
+  onPlanCreate
+}: {
+  plans: AdminPlan[];
+  users: DraftUser[];
+  onPlanChange: (plan: AdminPlan) => void;
+  onPlanCreate: (plan: AdminPlan) => void;
+}) {
+  const leads = users.filter((user) => user.role === "lead");
+  const [editingStep, setEditingStep] = useState<{ plan: AdminPlan; step: Plan["steps"][number] } | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState<AdminPlan | null>(null);
+  const [planList, setPlanList] = useState(plans);
+
+  useEffect(() => {
+    setPlanList(plans);
+  }, [plans]);
+
+  async function updateStep(plan: AdminPlan, stepId: string, patch: Partial<Plan["steps"][number]>) {
+    const saved = await api<AdminPlan>(`/api/department-plan/steps/${stepId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch)
+    });
+    onPlanChange({ ...saved, lead: plan.lead });
+  }
+
+  async function deletePlan(plan: AdminPlan) {
+    await api(`/api/admin/plans/${plan.id}`, { method: "DELETE" });
+    setPlanList((current) => current.filter((item) => item.id !== plan.id));
+    setDeletingPlan(null);
+  }
+
   return (
-    <section className="internCardGrid">
-      {plans.map((plan) => (
-        <article className="internAiCard" key={plan.id}>
-          <div>
-            <strong>{plan.title}</strong>
-            <p>{categoryOptions.find((category) => category.value === plan.category)?.label || plan.category}</p>
-          </div>
-          <div className="deadline">
-            <span>Базовый дедлайн: {plan.baseDeadline}</span>
-            <strong>Текущий: {plan.adjustedDeadline}</strong>
-          </div>
-          <p>{plan.aiRationale}</p>
-          <small>Тимлид: {plan.lead?.name || "не найден"} · Статус: {plan.status === "approved" ? "утвержден" : "черновик"}</small>
-          <div className="timeline">
-            {plan.milestones.map((item) => (
-              <span key={item}>{item}</span>
-            ))}
-          </div>
-          {plan.steps?.length ? (
-            <div className="stepList compact">
-              {plan.steps.map((step) => (
-                <article className="stepItem" key={step.id}>
-                  <div>
-                    <strong>{step.title}</strong>
-                    <small>
-                      До {step.deadline} ·{" "}
-                      {step.status === "done"
-                        ? "готово"
-                        : step.status === "in_progress"
-                          ? "в работе"
-                          : step.status === "canceled"
-                            ? "отменено"
-                            : "ожидает"}
-                    </small>
-                  </div>
-                </article>
+    <section className="flow">
+      <AdminPlanCreateForm leads={leads} users={users} onCreated={onPlanCreate} />
+      <div className="planBoard">
+        {planList.map((plan) => (
+          <article className="internAiCard adminPlanCard" key={plan.id}>
+            <div className="planCardHeader">
+              <div>
+                <strong>{plan.title}</strong>
+                <p>{categoryOptions.find((category) => category.value === plan.category)?.label || plan.category}</p>
+              </div>
+              <div className="planHeaderActions">
+                <span className="status ok">{plan.status === "approved" ? "Утвержден" : "Черновик"}</span>
+                <button className="ghostButton dangerButton compactDanger" type="button" onClick={() => setDeletingPlan(plan)}>
+                  Удалить
+                </button>
+              </div>
+            </div>
+            <div className="planMetaGrid">
+              <div>
+                <span>Тимлид</span>
+                <strong>{plan.lead?.name || "не найден"}</strong>
+              </div>
+              <div>
+                <span>Базовый дедлайн</span>
+                <strong>{plan.baseDeadline}</strong>
+              </div>
+              <div>
+                <span>Текущий дедлайн</span>
+                <strong>{plan.adjustedDeadline}</strong>
+              </div>
+            </div>
+            <p className="planAiNote">{plan.aiRationale}</p>
+            <div className="timeline compactTimeline">
+              {plan.milestones.map((item, index) => (
+                <span key={`${item}-${index}`}>{index + 1}. {item}</span>
               ))}
             </div>
-          ) : null}
-        </article>
-      ))}
-      {!plans.length && <p>Тимлиды еще не создали планы проектов.</p>}
+            {plan.steps?.length ? (
+              <div className="planTaskList">
+                {plan.steps.map((step, index) => (
+                  <article className="stepItem compactStep" key={step.id}>
+                    <button className="stepSummaryButton" type="button" onClick={() => setEditingStep({ plan, step })}>
+                      <span className="stepNumber">{index + 1}</span>
+                      <span className="stepSummaryText">
+                        <strong>{step.title}</strong>
+                        <span>{step.description || "Описание не заполнено"}</span>
+                      </span>
+                      <span className="stepMeta">
+                        <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
+                        <small>{step.deadline}{step.assignedTo ? " · назначен" : " · не назначен"}</small>
+                      </span>
+                    </button>
+                    <AdminStepMaterials stepId={step.id} />
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+      {!planList.length && <p>Планы проектов еще не созданы.</p>}
+      {editingStep ? (
+        <AdminStepEditModal
+          step={editingStep.step}
+          interns={users.filter((user) => user.role === "intern" && user.category === editingStep.plan.category)}
+          onClose={() => setEditingStep(null)}
+          onSave={async (patch) => {
+            await updateStep(editingStep.plan, editingStep.step.id, patch);
+            setEditingStep(null);
+          }}
+        />
+      ) : null}
+      {deletingPlan ? (
+        <ConfirmDeletePlanModal
+          plan={deletingPlan}
+          onCancel={() => setDeletingPlan(null)}
+          onConfirm={() => deletePlan(deletingPlan)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function AdminPlanCreateForm({ leads, users, onCreated }: { leads: DraftUser[]; users: DraftUser[]; onCreated: (plan: AdminPlan) => void }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({
+    title: "",
+    category: "erp-development" as Category,
+    leadId: "",
+    baseDeadline: today,
+    milestones: ""
+  });
+  const [previewSteps, setPreviewSteps] = useState<AdminPreviewStep[]>([]);
+  const [editingPreviewStep, setEditingPreviewStep] = useState<AdminPreviewStep | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const availableLeads = leads.filter((lead) => !lead.category || lead.category === form.category);
+  const availableInterns = users.filter((user) => user.role === "intern" && user.category === form.category);
+
+  function patchForm(patch: Partial<typeof form>) {
+    setForm((current) => ({ ...current, ...patch }));
+    setPreviewSteps([]);
+  }
+
+  function parseMilestones() {
+    return form.milestones
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+  }
+
+  function patchPreviewStep(clientId: string, patch: Partial<AdminPreviewStep>) {
+    setPreviewSteps((current) => current.map((step) => (step.clientId === clientId ? { ...step, ...patch } : step)));
+  }
+
+  function addPreviewStep() {
+    setPreviewSteps((current) => [
+      ...current,
+      {
+        clientId: crypto.randomUUID(),
+        title: "Новый шаг",
+        description: "",
+        technicalSpec: "",
+        technicalInstruction: "",
+        deadline: form.baseDeadline,
+        assignedTo: "",
+        status: "todo",
+        source: "manual"
+      }
+    ]);
+  }
+
+  async function generatePreview(event: FormEvent) {
+    event.preventDefault();
+    setPreviewBusy(true);
+    try {
+      const result = await api<{ steps: Omit<AdminPreviewStep, "clientId">[] }>("/api/admin/plans/preview", {
+        method: "POST",
+        body: JSON.stringify({ ...form, milestones: parseMilestones() })
+      });
+      setPreviewSteps(result.steps.map((step) => ({ ...step, clientId: crypto.randomUUID() })));
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
+  async function submit() {
+    setBusy(true);
+    try {
+      const created = await api<AdminPlan>("/api/admin/plans", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          milestones: parseMilestones(),
+          steps: previewSteps.map(({ clientId: _clientId, ...step }) => step)
+        })
+      });
+      onCreated(created);
+      setForm({ title: "", category: form.category, leadId: form.leadId, baseDeadline: today, milestones: "" });
+      setPreviewSteps([]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="panel form adminPlanForm" onSubmit={generatePreview}>
+      <h2>Создать план от администратора</h2>
+      <div className="officeGrid">
+        <label>
+          Название плана
+          <input value={form.title} onChange={(event) => patchForm({ title: event.target.value })} placeholder="ERP модуль учета стажировок" />
+        </label>
+        <label>
+          Департамент
+          <select value={form.category} onChange={(event) => patchForm({ category: event.target.value as Category, leadId: "" })}>
+            {categoryOptions.map((category) => (
+              <option key={category.value} value={category.value}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Тимлид
+          <select value={form.leadId} onChange={(event) => setForm({ ...form, leadId: event.target.value })}>
+            <option value="">Выберите тимлида</option>
+            {availableLeads.map((lead) => (
+              <option key={lead.id} value={lead.id}>
+                {lead.name}{lead.categoryLabel ? ` · ${lead.categoryLabel}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Дедлайн
+          <input type="date" value={form.baseDeadline} onChange={(event) => patchForm({ baseDeadline: event.target.value })} />
+        </label>
+      </div>
+      <label>
+        Ключевые этапы, каждый с новой строки
+        <textarea value={form.milestones} onChange={(event) => patchForm({ milestones: event.target.value })} placeholder={"Анализ требований\nПроектирование архитектуры\nРеализация и тестирование"} />
+      </label>
+      <button className="primaryButton" disabled={previewBusy || !form.leadId}>
+        {previewBusy ? "AI раскладывает план..." : "Сгенерировать превью шагов"}
+      </button>
+      {!availableLeads.length && <small className="errorText">Нет свободных тимлидов для выбранного департамента.</small>}
+      {previewSteps.length ? (
+        <div className="stepPreviewPanel">
+          <div className="reportTop">
+            <h3>Превью шагов перед утверждением</h3>
+            <button className="secondaryButton" type="button" onClick={addPreviewStep}>Добавить шаг</button>
+          </div>
+          <div className="stepList">
+            {previewSteps.map((step, index) => (
+              <article className="stepItem compactStep" key={step.clientId}>
+                <button className="stepSummaryButton" type="button" onClick={() => setEditingPreviewStep(step)}>
+                  <span className="stepNumber">{index + 1}</span>
+                  <span className="stepSummaryText">
+                    <strong>{step.title}</strong>
+                    <span>{step.description || "Описание не заполнено"}</span>
+                  </span>
+                  <span className="stepMeta">
+                    <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
+                    <small>{step.deadline}{step.assignedTo ? " · назначен" : " · не назначен"}</small>
+                  </span>
+                </button>
+                <button className="ghostButton dangerButton" type="button" onClick={() => setPreviewSteps((current) => current.filter((item) => item.clientId !== step.clientId))}>
+                  Удалить
+                </button>
+              </article>
+            ))}
+          </div>
+          <button className="primaryButton" type="button" onClick={submit} disabled={busy || !previewSteps.length}>
+            {busy ? "Сохраняю план..." : "Утвердить и назначить план"}
+          </button>
+        </div>
+      ) : null}
+      {editingPreviewStep ? (
+        <AdminStepEditModal
+          step={editingPreviewStep}
+          interns={availableInterns}
+          onClose={() => setEditingPreviewStep(null)}
+          onSave={async (patch) => {
+            patchPreviewStep(editingPreviewStep.clientId, patch);
+            setEditingPreviewStep(null);
+          }}
+        />
+      ) : null}
+    </form>
+  );
+}
+
+function ConfirmDeletePlanModal({ plan, onConfirm, onCancel }: { plan: AdminPlan; onConfirm: () => Promise<void>; onCancel: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    try {
+      await onConfirm();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onCancel}>
+      <section className="assistantModal confirmModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader">
+          <div>
+            <strong>Удалить план?</strong>
+            <p>Это действие удалит план и его шаги из платформы.</p>
+          </div>
+          <button className="iconButton" type="button" onClick={onCancel}>x</button>
+        </div>
+        <div className="deleteSummary">
+          <span>План</span>
+          <strong>{plan.title}</strong>
+          <small>{categoryOptions.find((category) => category.value === plan.category)?.label || plan.category}</small>
+        </div>
+        <div className="buttonRow">
+          <button className="ghostButton lightButton" type="button" onClick={onCancel}>Отмена</button>
+          <button className="secondaryButton dangerAction" type="button" onClick={confirm} disabled={busy}>
+            {busy ? "Удаляю..." : "Да, удалить план"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function stepStatusLabel(status: Plan["steps"][number]["status"]) {
+  if (status === "done") return "готово";
+  if (status === "in_progress") return "в работе";
+  if (status === "canceled") return "отменено";
+  return "ожидает";
+}
+
+function AdminStepEditModal({
+  step,
+  interns,
+  onSave,
+  onClose
+}: {
+  step: Plan["steps"][number] | AdminPreviewStep;
+  interns: DraftUser[];
+  onSave: (patch: Partial<Plan["steps"][number]>) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState({
+    title: step.title,
+    description: step.description || "",
+    technicalSpec: step.technicalSpec || "",
+    technicalInstruction: step.technicalInstruction || "",
+    deadline: step.deadline,
+    assignedTo: step.assignedTo || "",
+    status: step.status
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section className="assistantModal stepModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader">
+          <div>
+            <strong>Редактирование шага</strong>
+            <p>Описание, ТЗ, инструкция, исполнитель и статус.</p>
+          </div>
+          <button className="iconButton" type="button" onClick={onClose}>x</button>
+        </div>
+        <div className="form">
+          <label>
+            Название шага
+            <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          </label>
+          <label>
+            Описание результата
+            <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+          </label>
+          <label>
+            Техническое задание
+            <textarea value={draft.technicalSpec} onChange={(event) => setDraft({ ...draft, technicalSpec: event.target.value })} />
+          </label>
+          <label>
+            Техническая инструкция
+            <textarea value={draft.technicalInstruction} onChange={(event) => setDraft({ ...draft, technicalInstruction: event.target.value })} />
+          </label>
+          <div className="officeGrid">
+            <label>
+              Дедлайн
+              <input type="date" value={draft.deadline} onChange={(event) => setDraft({ ...draft, deadline: event.target.value })} />
+            </label>
+            <label>
+              Исполнитель
+              <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
+                <option value="">Не назначен</option>
+                {interns.map((intern) => (
+                  <option key={intern.id} value={intern.id}>{intern.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Статус
+              <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Plan["steps"][number]["status"] })}>
+                <option value="todo">Ожидает</option>
+                <option value="in_progress">В работе</option>
+                <option value="done">Готово</option>
+                <option value="canceled">Отменено</option>
+              </select>
+            </label>
+          </div>
+          <div className="buttonRow">
+            <button className="ghostButton lightButton" type="button" onClick={onClose}>Отмена</button>
+            <button className="primaryButton" type="button" onClick={save} disabled={saving}>{saving ? "Сохраняю..." : "Сохранить шаг"}</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminStepMaterials({ stepId }: { stepId: string }) {
+  const [thread, setThread] = useState<StepThread | null>(null);
+  const [artifact, setArtifact] = useState({ title: "", url: "" });
+  const [uploading, setUploading] = useState(false);
+
+  async function load() {
+    setThread(await api<StepThread>(`/api/department-plan/steps/${stepId}/thread`));
+  }
+
+  async function addArtifact(event: FormEvent) {
+    event.preventDefault();
+    await api(`/api/department-plan/steps/${stepId}/artifacts`, { method: "POST", body: JSON.stringify(artifact) });
+    setArtifact({ title: "", url: "" });
+    await load();
+  }
+
+  async function uploadArtifact(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadFile(file, "artifact");
+      setArtifact({ title: file.name, url: uploaded.url });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="threadBox">
+      <button className="ghostButton" type="button" onClick={load}>
+        Материалы шага
+      </button>
+      {thread ? (
+        <>
+          <div className="tagLine">
+            {thread.artifacts.map((item) => (
+              <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
+            ))}
+            {!thread.artifacts.length && <span>Материалы еще не прикреплены</span>}
+          </div>
+          <form className="inlineForm materialForm" onSubmit={addArtifact}>
+            <input value={artifact.title} onChange={(event) => setArtifact({ ...artifact, title: event.target.value })} placeholder="Название материала" />
+            <input value={artifact.url} onChange={(event) => setArtifact({ ...artifact, url: event.target.value })} placeholder="https://..." />
+            <label className="fileButton compact">
+              {uploading ? "..." : "Файл"}
+              <input type="file" onChange={(event) => uploadArtifact(event.target.files?.[0])} disabled={uploading} />
+            </label>
+            <button className="secondaryButton">Прикрепить</button>
+          </form>
+        </>
+      ) : null}
+    </div>
   );
 }
 

@@ -81,6 +81,8 @@ export type Plan = {
     id: string;
     title: string;
     description: string;
+    technicalSpec?: string;
+    technicalInstruction?: string;
     deadline: string;
     status: "todo" | "in_progress" | "done" | "canceled";
     assignedTo?: string;

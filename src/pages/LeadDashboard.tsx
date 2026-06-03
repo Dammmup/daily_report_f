@@ -260,8 +260,9 @@ function PlanProgressPanel({ plans }: { plans: Dashboard["stats"]["plans"] }) {
 }
 
 function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Dashboard["interns"]; onChange: (plan: Plan) => void }) {
-  const [draft, setDraft] = useState({ title: "", description: "", deadline: plan.adjustedDeadline, assignedTo: "" });
+  const [draft, setDraft] = useState({ title: "", description: "", technicalSpec: "", technicalInstruction: "", deadline: plan.adjustedDeadline, assignedTo: "" });
   const [busy, setBusy] = useState(false);
+  const [editingStep, setEditingStep] = useState<Plan["steps"][number] | null>(null);
 
   async function addStep(event: FormEvent) {
     event.preventDefault();
@@ -272,7 +273,7 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
         body: JSON.stringify(draft)
       });
       onChange(saved);
-      setDraft({ title: "", description: "", deadline: plan.adjustedDeadline, assignedTo: "" });
+      setDraft({ title: "", description: "", technicalSpec: "", technicalInstruction: "", deadline: plan.adjustedDeadline, assignedTo: "" });
     } finally {
       setBusy(false);
     }
@@ -290,36 +291,28 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
     <div className="planSteps">
       <h3>Пошаговые действия</h3>
       <div className="stepList">
-        {plan.steps?.map((step) => (
-          <article className="stepItem" key={step.id}>
-            <div>
-              <strong>{step.title}</strong>
-              <p>{step.description || "Описание можно уточнить вручную."}</p>
-              <small>Дедлайн: {step.deadline} · {step.source === "ai" ? "AI" : "добавлено тимлидом"}{step.overdue ? " · просрочено" : ""}</small>
-            </div>
-            <div className="stepControls">
-              <select value={step.assignedTo || ""} onChange={(event) => updateStep(step.id, { assignedTo: event.target.value || undefined })}>
-                <option value="">Не назначен</option>
-                {interns.map((intern) => (
-                  <option key={intern.id} value={intern.id}>
-                    {intern.name}
-                  </option>
-                ))}
-              </select>
-              <select value={step.status} onChange={(event) => updateStep(step.id, { status: event.target.value as Plan["steps"][number]["status"] })}>
-                <option value="todo">Ожидает</option>
-                <option value="in_progress">В работе</option>
-                <option value="done">Готово</option>
-                <option value="canceled">Отменено</option>
-              </select>
-            </div>
+        {(plan.steps || []).map((step, index) => (
+          <article className="stepItem compactStep" key={step.id}>
+            <button className="stepSummaryButton" type="button" onClick={() => setEditingStep(step)}>
+              <span className="stepNumber">{index + 1}</span>
+              <span className="stepSummaryText">
+                <strong>{step.title}</strong>
+                <span>{step.description || "Описание не заполнено"}</span>
+              </span>
+              <span className="stepMeta">
+                <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
+                <small>{step.deadline}{step.overdue ? " · просрочено" : ""}</small>
+              </span>
+            </button>
             <StepThreadPanel stepId={step.id} />
           </article>
         ))}
       </div>
       <form className="stepAddForm" onSubmit={addStep}>
         <input placeholder="Новый шаг" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-        <input placeholder="Описание" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+        <textarea placeholder="Описание результата" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+        <textarea placeholder="Техническое задание" value={draft.technicalSpec} onChange={(event) => setDraft({ ...draft, technicalSpec: event.target.value })} />
+        <textarea placeholder="Техническая инструкция" value={draft.technicalInstruction} onChange={(event) => setDraft({ ...draft, technicalInstruction: event.target.value })} />
         <input type="date" value={draft.deadline} onChange={(event) => setDraft({ ...draft, deadline: event.target.value })} />
         <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
           <option value="">Без назначения</option>
@@ -334,6 +327,99 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
           {busy ? "Добавляю..." : "Добавить шаг"}
         </button>
       </form>
+      {editingStep ? (
+        <LeadStepEditModal
+          step={editingStep}
+          interns={interns}
+          onClose={() => setEditingStep(null)}
+          onSave={async (patch) => {
+            await updateStep(editingStep.id, patch);
+            setEditingStep(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function stepStatusLabel(status: Plan["steps"][number]["status"]) {
+  if (status === "done") return "готово";
+  if (status === "in_progress") return "в работе";
+  if (status === "canceled") return "отменено";
+  return "ожидает";
+}
+
+function LeadStepEditModal({
+  step,
+  interns,
+  onSave,
+  onClose
+}: {
+  step: Plan["steps"][number];
+  interns: Dashboard["interns"];
+  onSave: (patch: Partial<Plan["steps"][number]>) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState({
+    title: step.title,
+    description: step.description || "",
+    technicalSpec: step.technicalSpec || "",
+    technicalInstruction: step.technicalInstruction || "",
+    deadline: step.deadline,
+    assignedTo: step.assignedTo || "",
+    status: step.status
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section className="assistantModal stepModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader">
+          <div>
+            <strong>Редактирование шага</strong>
+            <p>Описание, ТЗ, инструкция, исполнитель и статус.</p>
+          </div>
+          <button className="iconButton" type="button" onClick={onClose}>x</button>
+        </div>
+        <div className="form">
+          <label>Название шага<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+          <label>Описание результата<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+          <label>Техническое задание<textarea value={draft.technicalSpec} onChange={(event) => setDraft({ ...draft, technicalSpec: event.target.value })} /></label>
+          <label>Техническая инструкция<textarea value={draft.technicalInstruction} onChange={(event) => setDraft({ ...draft, technicalInstruction: event.target.value })} /></label>
+          <div className="officeGrid">
+            <label>Дедлайн<input type="date" value={draft.deadline} onChange={(event) => setDraft({ ...draft, deadline: event.target.value })} /></label>
+            <label>
+              Исполнитель
+              <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
+                <option value="">Не назначен</option>
+                {interns.map((intern) => <option key={intern.id} value={intern.id}>{intern.name}</option>)}
+              </select>
+            </label>
+            <label>
+              Статус
+              <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Plan["steps"][number]["status"] })}>
+                <option value="todo">Ожидает</option>
+                <option value="in_progress">В работе</option>
+                <option value="done">Готово</option>
+                <option value="canceled">Отменено</option>
+              </select>
+            </label>
+          </div>
+          <div className="buttonRow">
+            <button className="ghostButton lightButton" type="button" onClick={onClose}>Отмена</button>
+            <button className="primaryButton" type="button" onClick={save} disabled={saving}>{saving ? "Сохраняю..." : "Сохранить шаг"}</button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

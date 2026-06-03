@@ -160,6 +160,18 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
                         <div>
                           <strong>{step.title}</strong>
                           <p>{step.description}</p>
+                          {step.technicalSpec ? (
+                            <div className="stepDetails">
+                              <strong>ТЗ</strong>
+                              <p>{step.technicalSpec}</p>
+                            </div>
+                          ) : null}
+                          {step.technicalInstruction ? (
+                            <div className="stepDetails">
+                              <strong>Инструкция</strong>
+                              <p>{step.technicalInstruction}</p>
+                            </div>
+                          ) : null}
                           <small>
                             До {step.deadline} ·{" "}
                             {step.status === "done"

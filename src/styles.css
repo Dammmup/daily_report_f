@@ -502,12 +502,14 @@ textarea {
   align-items: center;
   gap: 6px;
   width: max-content;
-  border-radius: 999px;
+  max-width: 100%;
+  border-radius: 8px;
   background: #eef2f7;
   color: #475569;
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .status.ok {
@@ -543,6 +545,123 @@ textarea {
   border: 1px solid #dbe4ee;
   border-radius: 8px;
   background: #f8fafc;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.stepItem.editableStep {
+  grid-template-columns: 1fr;
+}
+
+.stepItem.compactStep {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  background: #ffffff;
+  border-color: #e4eaf2;
+  padding: 8px;
+}
+
+.stepSummaryButton {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(150px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #ffffff;
+  color: #172033;
+  text-align: left;
+}
+
+.stepSummaryButton:hover {
+  background: #f8fbfb;
+}
+
+.stepNumber {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #edf9f4;
+  color: #10765a;
+  font-weight: 900;
+}
+
+.stepSummaryText {
+  display: grid;
+  gap: 4px;
+}
+
+.stepSummaryText strong,
+.stepSummaryText span,
+.stepMeta small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stepSummaryText span {
+  color: #475569;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.stepMeta {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.stepMeta .status {
+  justify-self: end;
+}
+
+.stepModal {
+  width: min(860px, 100%);
+}
+
+.stepModal textarea {
+  min-height: 120px;
+}
+
+.lightButton {
+  margin-top: 0;
+  background: #e7edf5;
+  color: #172033;
+}
+
+.dangerButton {
+  width: 100%;
+  margin-top: 0;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.stepBody {
+  display: grid;
+  gap: 8px;
+}
+
+.stepBody textarea {
+  min-height: 72px;
+}
+
+.stepDetails {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.stepDetails strong {
+  margin: 0;
+  color: #10765a;
+  font-size: 13px;
 }
 
 .stepItem.assigned {
@@ -571,8 +690,155 @@ textarea {
 }
 
 .stepAddForm {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 150px 170px auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
+}
+
+.stepAddForm button {
+  min-height: 100%;
+}
+
+.threadBox,
+.adminPlanCard {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.planBoard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.adminPlanCard {
+  gap: 18px;
+  padding: 20px;
+  border-color: #d8e3ef;
+  box-shadow: 0 14px 36px rgba(20, 34, 55, 0.07);
+}
+
+.planCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.planHeaderActions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.planCardHeader strong {
+  font-size: 18px;
+}
+
+.planCardHeader p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.compactDanger {
+  min-height: 34px;
+  width: auto;
+  padding: 0 12px;
+}
+
+.confirmModal {
+  width: min(480px, 100%);
+}
+
+.deleteSummary {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fef3f2;
+  border: 1px solid #fecaca;
+}
+
+.deleteSummary span,
+.deleteSummary small {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.dangerAction {
+  background: #b91c1c;
+}
+
+.planMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.planMetaGrid div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e4eaf2;
+}
+
+.planMetaGrid span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.planMetaGrid strong {
+  font-size: 14px;
+}
+
+.planAiNote {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fbfb;
+  border-left: 3px solid #10765a;
+}
+
+.compactTimeline span {
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e4eaf2;
+}
+
+.planTaskList {
+  display: grid;
+  gap: 8px;
+}
+
+.threadBox .ghostButton {
+  width: 100%;
+  background: #e7edf5;
+  color: #172033;
+}
+
+.materialForm {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+}
+
+.stepPreviewPanel {
+  display: grid;
+  gap: 14px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.stepPreviewPanel h3 {
+  margin: 0;
+}
+
+.stepPreviewPanel .ghostButton {
+  width: auto;
+  margin-top: 0;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .categoryGrid {
@@ -1106,6 +1372,23 @@ textarea {
   }
 
   .adminRow {
+    grid-template-columns: 1fr;
+  }
+
+  .stepSummaryButton {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .stepMeta {
+    grid-column: 2;
+    justify-items: start;
+  }
+
+  .stepMeta .status {
+    justify-self: start;
+  }
+
+  .planMetaGrid {
     grid-template-columns: 1fr;
   }
 
