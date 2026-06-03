@@ -41,7 +41,7 @@ export function ExternalResourcesPanel({
   planId?: string;
   category?: Category;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openMode, setOpenMode] = useState<"integrations" | "manual" | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [resources, setResources] = useState<ExternalResource[]>([]);
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
@@ -215,22 +215,42 @@ export function ExternalResourcesPanel({
 
   return (
     <section className="externalResourcesPanel">
-      <button
-        className="ghostButton lightButton"
-        type="button"
-        onClick={() => {
-          const next = !open;
-          setOpen(next);
-          if (next) void load();
-        }}
-      >
-        <Link2 size={16} />
-        Интеграции и материалы
-      </button>
+      <div className="buttonRow compactButtons">
+        <button
+          className={`ghostButton lightButton ${openMode === "integrations" ? "active" : ""}`}
+          type="button"
+          onClick={() => {
+            const next = openMode === "integrations" ? null : "integrations";
+            setOpenMode(next);
+            if (next) {
+              setForm((f) => ({ ...f, provider: "google_drive" }));
+              void load();
+            }
+          }}
+        >
+          <BrainCircuit size={16} />
+          Внешние сервисы (OAuth)
+        </button>
+        <button
+          className={`ghostButton lightButton ${openMode === "manual" ? "active" : ""}`}
+          type="button"
+          onClick={() => {
+            const next = openMode === "manual" ? null : "manual";
+            setOpenMode(next);
+            if (next) {
+              setForm((f) => ({ ...f, provider: "manual" }));
+              void load();
+            }
+          }}
+        >
+          <Link2 size={16} />
+          Сторонние материалы (Вручную)
+        </button>
+      </div>
 
-      {open ? (
+      {openMode ? (
         <div className="externalResourcesBody">
-          {status ? (
+          {status && openMode === "integrations" ? (
             <div className="integrationConnectGrid">
               {status.providers.map((item) => (
                 <article className={`integrationConnectCard ${item.connection?.status === "needs_reauth" ? "needsReauth" : ""}`} key={item.provider}>
@@ -318,31 +338,55 @@ export function ExternalResourcesPanel({
             </div>
           ) : null}
 
-          <form className="externalResourceForm" onSubmit={submit}>
-            <select value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value as IntegrationProvider })}>
-              {Object.entries(providerLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <select value={form.resourceType} onChange={(event) => setForm({ ...form, resourceType: event.target.value as ExternalResource["resourceType"] })}>
-              {Object.entries(resourceTypeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Название ресурса" />
-            <input value={form.externalUrl} onChange={(event) => setForm({ ...form, externalUrl: event.target.value })} placeholder="https://..." />
-            <textarea value={form.contentSummary} onChange={(event) => setForm({ ...form, contentSummary: event.target.value })} placeholder="Кратко: что внутри документа, доски или страницы" />
-            <button className="secondaryButton" disabled={busy}>
-              {busy ? "Привязываю..." : "Привязать"}
-            </button>
-          </form>
+          {openMode === "integrations" ? (
+            <form className="externalResourceForm" onSubmit={submit}>
+              <strong style={{ width: "100%", fontSize: 13, display: "block", marginBottom: 4 }}>Или добавьте ссылку на интегрированный сервис вручную:</strong>
+              <select value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value as IntegrationProvider })}>
+                {Object.entries(providerLabels)
+                  .filter(([value]) => value !== "manual")
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+              </select>
+              <select value={form.resourceType} onChange={(event) => setForm({ ...form, resourceType: event.target.value as ExternalResource["resourceType"] })}>
+                {Object.entries(resourceTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Название ресурса" />
+              <input value={form.externalUrl} onChange={(event) => setForm({ ...form, externalUrl: event.target.value })} placeholder="https://..." />
+              <textarea value={form.contentSummary} onChange={(event) => setForm({ ...form, contentSummary: event.target.value })} placeholder="Кратко: что внутри документа, доски или страницы" />
+              <button className="secondaryButton" disabled={busy}>
+                {busy ? "Привязываю..." : "Привязать"}
+              </button>
+            </form>
+          ) : (
+            <form className="externalResourceForm" onSubmit={submit}>
+              <strong style={{ width: "100%", fontSize: 13, display: "block", marginBottom: 4 }}>Добавьте произвольную ссылку или описание:</strong>
+              <select value={form.resourceType} onChange={(event) => setForm({ ...form, resourceType: event.target.value as ExternalResource["resourceType"] })}>
+                {Object.entries(resourceTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Название материала" />
+              <input value={form.externalUrl} onChange={(event) => setForm({ ...form, externalUrl: event.target.value })} placeholder="https://..." />
+              <textarea value={form.contentSummary} onChange={(event) => setForm({ ...form, contentSummary: event.target.value })} placeholder="Кратко: что внутри (текст, описание)" />
+              <button className="secondaryButton" disabled={busy}>
+                {busy ? "Привязываю..." : "Добавить материал"}
+              </button>
+            </form>
+          )}
 
           <div className="externalResourceList">
-            {resources.map((resource) => (
+            {resources
+              .filter((r) => (openMode === "integrations" ? r.provider !== "manual" : r.provider === "manual"))
+              .map((resource) => (
               <article className="externalResourceCard" key={resource.id}>
                 <div className="reportTop">
                   <div>
@@ -381,7 +425,9 @@ export function ExternalResourcesPanel({
                 )}
               </article>
             ))}
-            {!resources.length && <small className="mutedText">Пока нет привязанных внешних материалов.</small>}
+            {!resources.filter((r) => (openMode === "integrations" ? r.provider !== "manual" : r.provider === "manual")).length && (
+              <small className="mutedText">Пока нет привязанных материалов этого типа.</small>
+            )}
           </div>
 
           {message ? <small className={message === "Ресурс привязан." || message === "Trello подключен." ? "successText" : "errorText"}>{message}</small> : null}
