@@ -1,6 +1,6 @@
 import { ImagePlus, LogOut, Settings } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { api, clearToken, getToken, uploadFile, type User } from "./api";
+import { api, clearToken, getToken, setToken, uploadFile, type User } from "./api";
 import { ShellLoading } from "./components/ShellLoading";
 import { TelegramHelp } from "./components/TelegramHelp";
 import { AdminDashboard } from "./pages/AdminDashboard";
@@ -10,6 +10,7 @@ import { LeadDashboard } from "./pages/LeadDashboard";
 import { Login } from "./pages/Login";
 import { Onboarding } from "./pages/Onboarding";
 import type { Session } from "./session";
+import { getTelegramInitData } from "./telegramWebApp";
 
 const roleLabels = {
   intern: "Стажер",
@@ -25,7 +26,22 @@ export function App() {
   useEffect(() => {
     const token = getToken();
     if (!token) {
-      setLoading(false);
+      const initData = getTelegramInitData();
+      if (!initData) {
+        setLoading(false);
+        return;
+      }
+
+      api<Session>("/api/telegram/mini-app-session", {
+        method: "POST",
+        body: JSON.stringify({ initData })
+      })
+        .then((telegramSession) => {
+          setToken(telegramSession.token);
+          setSession(telegramSession);
+        })
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
       return;
     }
 
@@ -42,6 +58,8 @@ export function App() {
     clearToken();
     setSession(null);
   };
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   return (
     <main className="app">
@@ -81,10 +99,36 @@ export function App() {
         ) : session.user.role === "lead" ? (
           <LeadDashboard user={session.user} />
         ) : (
-          <InternDashboard user={session.user} />
+          <InternDashboard user={session.user} onUser={(user) => setSession({ ...session, user })} />
         )}
       </section>
+      <MobileBottomNav role={session.user.role} onProfile={() => setProfileOpen((value) => !value)} onTop={scrollToTop} onLogout={logout} />
     </main>
+  );
+}
+
+function MobileBottomNav({ role, onProfile, onTop, onLogout }: { role: User["role"]; onProfile: () => void; onTop: () => void; onLogout: () => void }) {
+  return (
+    <nav className="mobileBottomNav" aria-label="Быстрая навигация">
+      <button type="button" onClick={onTop}>
+        Главная
+      </button>
+      <button type="button" onClick={onProfile}>
+        Профиль
+      </button>
+      {role === "intern" ? (
+        <button type="button" onClick={() => document.querySelector("form.panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          Дэйлик
+        </button>
+      ) : (
+        <button type="button" onClick={() => document.querySelector(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          Разделы
+        </button>
+      )}
+      <button type="button" onClick={onLogout}>
+        Выход
+      </button>
+    </nav>
   );
 }
 

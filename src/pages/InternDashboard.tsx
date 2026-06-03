@@ -1,17 +1,19 @@
 import { Activity, BarChart3, Bot, CalendarCheck, MapPin, Send, Target } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api, uploadFile, type AttendanceSummary, type Plan, type Report, type StepThread, type User } from "../api";
+import { api, uploadFile, type AttendanceSummary, type Category, type Plan, type Report, type StepThread, type User } from "../api";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
+import { categoryOptions } from "../constants";
 
-export function InternDashboard({ user }: { user: User }) {
+export function InternDashboard({ user, onUser }: { user: User; onUser: (user: User) => void }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [mood, setMood] = useState<"focused" | "normal" | "blocked">("focused");
   const [form, setForm] = useState({ yesterday: "", todayPlan: "", blockers: "", linkedStepIds: [] as string[] });
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
+  const [attendanceMessage, setAttendanceMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
@@ -30,20 +32,42 @@ export function InternDashboard({ user }: { user: User }) {
   }, []);
 
   async function checkIn() {
-    const position = attendanceSummary?.officeLocation
-      ? await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 }))
-      : null;
+    setAttendanceMessage("");
+    try {
+      if (attendanceSummary?.officeLocation && !navigator.geolocation) {
+        setAttendanceMessage("Браузер не поддерживает геолокацию. Откройте Mini App в Telegram или современном браузере.");
+        return;
+      }
 
-    await api("/api/attendance/check-in", {
-      method: "POST",
-      body: JSON.stringify({
-        mood,
-        latitude: position?.coords.latitude,
-        longitude: position?.coords.longitude,
-        accuracyMeters: position?.coords.accuracy
-      })
-    });
-    await refresh();
+      const position = attendanceSummary?.officeLocation
+        ? await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 }))
+        : null;
+
+      await api("/api/attendance/check-in", {
+        method: "POST",
+        body: JSON.stringify({
+          mood,
+          latitude: position?.coords.latitude,
+          longitude: position?.coords.longitude,
+          accuracyMeters: position?.coords.accuracy
+        })
+      });
+      setAttendanceMessage("Отметка сохранена");
+      await refresh();
+    } catch (error) {
+      const geoError = typeof error === "object" && error && "code" in error ? (error as { code: number }) : null;
+      setAttendanceMessage(
+        geoError?.code === 1
+          ? "Разрешите геолокацию в Telegram или браузере, чтобы подтвердить присутствие в офисе."
+          : geoError?.code === 2
+            ? "Не удалось получить координаты. Проверьте GPS и попробуйте еще раз."
+            : geoError?.code === 3
+              ? "Геолокация отвечает слишком долго. Подойдите к окну или попробуйте еще раз."
+              : error instanceof Error
+                ? error.message
+                : "Не удалось сохранить отметку."
+      );
+    }
   }
 
   async function submitReport(event: FormEvent) {
@@ -110,6 +134,7 @@ export function InternDashboard({ user }: { user: User }) {
           ) : (
             <small>Офисная точка еще не задана тимлидом.</small>
           )}
+          {attendanceMessage && <small className={attendanceMessage === "Отметка сохранена" ? "successText" : "errorText"}>{attendanceMessage}</small>}
         </div>
 
         <div className="panel">
@@ -160,6 +185,8 @@ export function InternDashboard({ user }: { user: User }) {
           )}
         </div>
       </section>
+
+      <DepartmentChangePanel user={user} onUser={onUser} />
 
       <form className="panel form" onSubmit={submitReport}>
         <h2>{editingReportId ? "Редактирование дэйлика" : "Дневной отчет"}</h2>
@@ -217,6 +244,70 @@ export function InternDashboard({ user }: { user: User }) {
         }}
       />
     </section>
+  );
+}
+
+function isToday(value?: string) {
+  return Boolean(value && value.slice(0, 10) === new Date().toISOString().slice(0, 10));
+}
+
+function DepartmentChangePanel({ user, onUser }: { user: User; onUser: (user: User) => void }) {
+  const [category, setCategory] = useState<Category>(user.category || "erp-development");
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const lockedToday = isToday(user.lastDepartmentChangedAt);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      const result = await api<{ user: User }>("/api/department", {
+        method: "POST",
+        body: JSON.stringify({ category, reason })
+      });
+      onUser(result.user);
+      setReason("");
+      setMessage("Департамент обновлен");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сменить департамент");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="panel form" onSubmit={submit}>
+      <h2>Департамент стажера</h2>
+      <p className="mutedText">
+        Текущий департамент: {user.categoryLabel || "не выбран"}. Стажер может сменить департамент один раз в день, если объяснит причину.
+      </p>
+      <label>
+        Новый департамент
+        <select value={category} onChange={(event) => setCategory(event.target.value as Category)} disabled={lockedToday}>
+          {categoryOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Причина смены
+        <textarea
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="Например: хочу перейти в ML, потому что задача и навыки больше соответствуют этому направлению"
+          disabled={lockedToday}
+        />
+      </label>
+      <button className="secondaryButton" disabled={saving || lockedToday || category === user.category}>
+        {lockedToday ? "Сегодня уже меняли департамент" : saving ? "Сохраняю..." : "Сменить департамент"}
+      </button>
+      {user.lastDepartmentChangeReason && <small>Последняя причина: {user.lastDepartmentChangeReason}</small>}
+      {message && <small>{message}</small>}
+    </form>
   );
 }
 

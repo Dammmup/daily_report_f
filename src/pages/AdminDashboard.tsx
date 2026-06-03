@@ -1,6 +1,6 @@
-import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type Plan, type Role, type User } from "../api";
+import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Save, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { api, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type User } from "../api";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -32,18 +32,20 @@ export function AdminDashboard() {
   const [decisionCenter, setDecisionCenter] = useState<DecisionCenter | null>(null);
   const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLog[]>([]);
+  const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([]);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
-  const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans" | "audit">("overview");
+  const [tab, setTab] = useState<"users" | "overview" | "ai" | "plans" | "office" | "audit">("overview");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   async function refresh() {
-    const [userList, dashboardData, summaryData, planList, decisionData, auditData] = await Promise.all([
+    const [userList, dashboardData, summaryData, planList, decisionData, officeData, auditData] = await Promise.all([
       api<User[]>("/api/admin/users"),
       api<Dashboard>("/api/admin/dashboard"),
       api<AiSummary>("/api/admin/ai-summary"),
       api<AdminPlan[]>("/api/admin/plans"),
       api<DecisionCenter>("/api/admin/decision-center"),
+      api<OfficeLocation[]>("/api/attendance/office-locations"),
       api<AuditLog[]>("/api/audit-log")
     ]);
     setUsers(userList.map((user) => ({ ...user, draftRole: user.role, draftCategory: user.category || "" })));
@@ -51,6 +53,7 @@ export function AdminDashboard() {
     setAiSummary(summaryData);
     setPlans(planList);
     setDecisionCenter(decisionData);
+    setOfficeLocations(officeData);
     setAuditLog(auditData);
   }
 
@@ -116,6 +119,9 @@ export function AdminDashboard() {
         <button className={tab === "plans" ? "active" : ""} onClick={() => setTab("plans")}>
           Планы
         </button>
+        <button className={tab === "office" ? "active" : ""} onClick={() => setTab("office")}>
+          Офис
+        </button>
         <button className={tab === "audit" ? "active" : ""} onClick={() => setTab("audit")}>
           Журнал
         </button>
@@ -125,8 +131,122 @@ export function AdminDashboard() {
       {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} onOpenIntern={openIntern} />}
       {tab === "ai" && <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />}
       {tab === "plans" && <PlansView plans={plans} />}
+      {tab === "office" && <AdminOfficeLocationsView locations={officeLocations} onSaved={refresh} />}
       {tab === "audit" && <AuditLogView logs={auditLog} />}
     </section>
+  );
+}
+
+function AdminOfficeLocationsView({ locations, onSaved }: { locations: OfficeLocation[]; onSaved: () => Promise<void> }) {
+  const locationByCategory = new Map(locations.map((location) => [location.category, location]));
+
+  return (
+    <section className="internCardGrid">
+      {categoryOptions.map((category) => (
+        <AdminOfficeLocationCard key={category.value} category={category.value} label={category.label} location={locationByCategory.get(category.value)} onSaved={onSaved} />
+      ))}
+    </section>
+  );
+}
+
+function AdminOfficeLocationCard({
+  category,
+  label,
+  location,
+  onSaved
+}: {
+  category: Category;
+  label: string;
+  location?: OfficeLocation;
+  onSaved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    latitude: location?.latitude ? String(location.latitude) : "",
+    longitude: location?.longitude ? String(location.longitude) : "",
+    radiusMeters: String(location?.radiusMeters || 150),
+    minWeeklyOfficeDays: String(location?.minWeeklyOfficeDays || 2)
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setForm({
+      latitude: location?.latitude ? String(location.latitude) : "",
+      longitude: location?.longitude ? String(location.longitude) : "",
+      radiusMeters: String(location?.radiusMeters || 150),
+      minWeeklyOfficeDays: String(location?.minWeeklyOfficeDays || 2)
+    });
+  }, [location]);
+
+  function useCurrentPosition() {
+    navigator.geolocation.getCurrentPosition((position) => {
+      setForm((current) => ({
+        ...current,
+        latitude: position.coords.latitude.toFixed(6),
+        longitude: position.coords.longitude.toFixed(6)
+      }));
+    });
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await api<OfficeLocation>("/api/attendance/office-location", {
+        method: "PUT",
+        body: JSON.stringify({
+          category,
+          latitude: Number(form.latitude),
+          longitude: Number(form.longitude),
+          radiusMeters: Number(form.radiusMeters),
+          minWeeklyOfficeDays: Number(form.minWeeklyOfficeDays)
+        })
+      });
+      await onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="internAiCard form" onSubmit={save}>
+      <div>
+        <strong>{label}</strong>
+        <p>{location ? "Точка уже задана" : "Точка еще не задана"}</p>
+      </div>
+      <div className="officeGrid">
+        <label>
+          Широта
+          <input value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} placeholder="43.238949" />
+        </label>
+        <label>
+          Долгота
+          <input value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} placeholder="76.889709" />
+        </label>
+        <label>
+          Радиус, м
+          <input type="number" min={25} max={2000} value={form.radiusMeters} onChange={(event) => setForm({ ...form, radiusMeters: event.target.value })} />
+        </label>
+        <label>
+          Норма в неделю
+          <input type="number" min={1} max={7} value={form.minWeeklyOfficeDays} onChange={(event) => setForm({ ...form, minWeeklyOfficeDays: event.target.value })} />
+        </label>
+      </div>
+      <div className="buttonRow">
+        <button className="ghostButton" type="button" onClick={useCurrentPosition}>
+          <MapPin size={16} />
+          Мои координаты
+        </button>
+        <button className="primaryButton" disabled={saving}>
+          <Save size={18} />
+          {saving ? "Сохраняю..." : "Сохранить"}
+        </button>
+      </div>
+      {location ? (
+        <small>
+          {location.latitude}, {location.longitude} · {location.radiusMeters} м · {location.minWeeklyOfficeDays} раз/нед
+        </small>
+      ) : null}
+    </form>
   );
 }
 

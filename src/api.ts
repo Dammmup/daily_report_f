@@ -1,8 +1,11 @@
 export type Role = "intern" | "lead" | "admin";
 
 export type Category =
-  | "data-system-ml"
-  | "marketing-sales"
+  | "data-analytics"
+  | "system-analytics"
+  | "machine-learning"
+  | "marketing"
+  | "sales"
   | "erp-development"
   | "data-security";
 
@@ -26,6 +29,8 @@ export type User = {
   telegramActivityMessages?: number;
   telegramActivityScore?: number;
   telegramActivitySummary?: string;
+  lastDepartmentChangedAt?: string;
+  lastDepartmentChangeReason?: string;
   lastActiveAt: string;
 };
 
@@ -309,6 +314,18 @@ export function clearToken() {
   localStorage.removeItem(tokenKey);
 }
 
+export class ApiError extends Error {
+  status: number;
+  requestId?: string;
+
+  constructor(message: string, status: number, requestId?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.requestId = requestId;
+  }
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -321,7 +338,10 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const data = text && isJson ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    throw new Error(data?.message || `Ошибка запроса: ${response.status}`);
+    const requestId = data?.requestId;
+    const detail = data?.detail ? ` ${data.detail}` : "";
+    const suffix = requestId ? ` Код ошибки: ${requestId}` : "";
+    throw new ApiError(`${data?.message || `Ошибка запроса: ${response.status}`}${detail}${suffix}`, response.status, requestId);
   }
 
   return data as T;
