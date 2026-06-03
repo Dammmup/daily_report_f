@@ -1358,6 +1358,101 @@ textarea {
   color: #ffffff;
 }
 
+.assignmentPanel {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #d6e3f0;
+  border-radius: 8px;
+  background: #f8fbfd;
+}
+
+.assignmentSummary {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 8px;
+  background: #e7f6ef;
+  color: #13573f;
+  font-weight: 700;
+}
+
+.assignmentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 12px;
+}
+
+.assignmentCard {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e0e8f1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.assignmentCardHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.assignmentCardHeader strong,
+.assignmentReason,
+.assignmentCard p {
+  overflow-wrap: anywhere;
+}
+
+.assignmentScore {
+  min-width: 64px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  text-align: center;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.assignmentScore.high {
+  background: #0d7a5f;
+}
+
+.assignmentScore.medium {
+  background: #9a6a12;
+}
+
+.assignmentScore.low {
+  background: #a43d3d;
+}
+
+.compactPerson {
+  padding: 8px;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.assignmentReason {
+  margin: 0;
+  color: #314256;
+  font-size: 14px;
+}
+
+.assignmentRisks {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border-radius: 8px;
+  background: #fff6e5;
+  color: #7a4c00;
+  padding: 10px;
+  font-size: 13px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1386,6 +1481,7 @@ textarea {
   .stepAddForm,
   .inlineForm,
   .officeGrid,
+  .assignmentGrid,
   .auditItem {
     grid-template-columns: 1fr;
   }

@@ -1,6 +1,7 @@
 import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, getToken, uploadFile, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type RiskCenter, type StepThread, type User } from "../api";
+import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -32,7 +33,13 @@ export function LeadDashboard({ user }: { user: User }) {
   const [planHistory, setPlanHistory] = useState<Plan[]>([]);
   const [officeLocation, setOfficeLocation] = useState<OfficeLocation | null>(null);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
-  const [tab, setTab] = useState<"overview" | "ai">("overview");
+  const [tab, setTab] = useState<"overview" | "plans" | "automation" | "ai">("overview");
+  const [loadedSections, setLoadedSections] = useState({
+    decision: false,
+    plans: false,
+    office: false,
+    risk: false
+  });
   const [planForm, setPlanForm] = useState<PlanForm>({
     title: "Проект департамента",
     baseDeadline: "2026-06-20",
@@ -40,23 +47,36 @@ export function LeadDashboard({ user }: { user: User }) {
   });
   const [savingPlan, setSavingPlan] = useState(false);
 
-  async function refresh() {
-    const [dashboardData, planData, decisionData, plansData, officeData, riskData, weeklyData] = await Promise.all([
-      api<Dashboard>("/api/dashboard"),
-      api<Plan | null>("/api/my-plan"),
-      api<DecisionCenter>("/api/decision-center"),
-      api<Plan[]>("/api/department-plans"),
-      api<OfficeLocation | null>("/api/attendance/office-location"),
+  async function refreshDashboard() {
+    const dashboardData = await api<Dashboard>("/api/dashboard");
+    setDashboard(dashboardData);
+  }
+
+  async function loadDecisionCenter(force = false) {
+    if (!force && loadedSections.decision) return;
+    setDecisionCenter(await api<DecisionCenter>("/api/decision-center"));
+    setLoadedSections((current) => ({ ...current, decision: true }));
+  }
+
+  async function loadRiskCenter(force = false) {
+    if (!force && loadedSections.risk) return;
+    const [riskData, weeklyData] = await Promise.all([
       api<RiskCenter>("/api/risk-center"),
       api<{ summary: string }>("/api/weekly-review")
     ]);
-    setDashboard(dashboardData);
-    setDepartmentPlan(planData);
-    setDecisionCenter(decisionData);
-    setPlanHistory(plansData);
-    setOfficeLocation(officeData);
     setRiskCenter(riskData);
     setWeeklyReview(weeklyData.summary);
+    setLoadedSections((current) => ({ ...current, risk: true }));
+  }
+
+  async function loadPlans(force = false) {
+    if (!force && loadedSections.plans) return;
+    const [planData, plansData] = await Promise.all([
+      api<Plan | null>("/api/my-plan"),
+      api<Plan[]>("/api/department-plans")
+    ]);
+    setDepartmentPlan(planData);
+    setPlanHistory(plansData);
     if (planData) {
       setPlanForm({
         title: planData.title,
@@ -64,12 +84,19 @@ export function LeadDashboard({ user }: { user: User }) {
         milestones: planData.milestones.join("\n")
       });
     }
+    setLoadedSections((current) => ({ ...current, plans: true }));
+  }
+
+  async function loadOfficeLocation(force = false) {
+    if (!force && loadedSections.office) return;
+    setOfficeLocation(await api<OfficeLocation | null>("/api/attendance/office-location"));
+    setLoadedSections((current) => ({ ...current, office: true }));
   }
 
   async function completeDepartmentPlan() {
     if (!departmentPlan) return;
     await api<Plan>(`/api/department-plan/${departmentPlan.id}/complete`, { method: "POST" });
-    await refresh();
+    await Promise.all([loadPlans(true), refreshDashboard()]);
   }
 
   async function downloadCsv() {
@@ -86,14 +113,20 @@ export function LeadDashboard({ user }: { user: User }) {
   }
 
   useEffect(() => {
-    refresh();
+    refreshDashboard();
   }, []);
 
   useEffect(() => {
+    if (tab === "overview") {
+      void loadDecisionCenter();
+      void loadRiskCenter();
+    }
+    if (tab === "plans") void loadPlans();
+    if (tab === "automation") void loadOfficeLocation();
     if (tab === "ai" && !aiSummary) {
       void api<AiSummary>("/api/ai-summary").then(setAiSummary);
     }
-  }, [tab, aiSummary]);
+  }, [tab, aiSummary, loadedSections]);
 
   async function openIntern(id: string) {
     setSelectedIntern(await api<InternProfile>(`/api/interns/${id}`));
@@ -122,13 +155,13 @@ export function LeadDashboard({ user }: { user: User }) {
         body: JSON.stringify({ ...planForm, milestones: parseMilestones() })
       });
       setDepartmentPlan(saved);
-      await refresh();
+      await Promise.all([loadPlans(true), refreshDashboard()]);
     } finally {
       setSavingPlan(false);
     }
   }
 
-  if (!dashboard || !decisionCenter) return <ShellLoading />;
+  if (!dashboard) return <ShellLoading />;
 
   if (selectedIntern) {
     return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
@@ -136,21 +169,52 @@ export function LeadDashboard({ user }: { user: User }) {
 
   return (
     <section className="flow">
-      <Header eyebrow={user.categoryLabel || "Тимлид"} title={tab === "overview" ? "Активность стажеров" : "AI-сводка стажеров"} icon={<Users />} />
+      <Header
+        eyebrow={user.categoryLabel || "Тимлид"}
+        title={tab === "overview" ? "Активность стажеров" : tab === "plans" ? "Планы департамента" : tab === "automation" ? "Автоматизация и Telegram" : "AI-сводка стажеров"}
+        icon={<Users />}
+      />
       <AiAssistantDialog />
       <TelegramHelp user={user} />
 
-      <DecisionCenterPanel data={decisionCenter} />
-      {riskCenter && <RiskCenterPanel data={riskCenter} weeklyReview={weeklyReview} />}
-      <PlanProgressPanel plans={dashboard.stats.plans} />
+      <div className="tabs inlineTabs">
+        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
+          Обзор
+        </button>
+        <button className={tab === "plans" ? "active" : ""} onClick={() => setTab("plans")}>
+          Планы
+        </button>
+        <button className={tab === "automation" ? "active" : ""} onClick={() => setTab("automation")}>
+          Автоматизация
+        </button>
+        <button className={tab === "ai" ? "active" : ""} onClick={() => setTab("ai")}>
+          AI-сводка
+        </button>
+      </div>
 
-      <section className="split">
-        <LeadDailyPanel />
-        <TelegramDigestPanel />
-      </section>
+      {tab === "overview" ? (
+        <>
+          {decisionCenter ? <DecisionCenterPanel data={decisionCenter} /> : <ShellLoading />}
+          {riskCenter && <RiskCenterPanel data={riskCenter} weeklyReview={weeklyReview} />}
+          <PlanProgressPanel plans={dashboard.stats.plans} />
+          <Overview dashboard={dashboard} onOpenIntern={openIntern} />
+        </>
+      ) : null}
 
-      <OfficeLocationPanel location={officeLocation} onChange={setOfficeLocation} />
+      {tab === "automation" ? (
+        <>
+          <section className="split">
+            <LeadDailyPanel />
+            <TelegramDigestPanel />
+          </section>
 
+          {loadedSections.office ? <OfficeLocationPanel location={officeLocation} onChange={setOfficeLocation} /> : <ShellLoading />}
+        </>
+      ) : null}
+
+      {tab === "plans" ? (
+        loadedSections.plans ? (
+          <>
       <section className="split">
         <form className="panel form" onSubmit={submitDepartmentPlan}>
           <h2>План проекта департамента</h2>
@@ -191,6 +255,13 @@ export function LeadDashboard({ user }: { user: User }) {
                   <span key={item}>{item}</span>
                 ))}
               </div>
+              <AssignmentDraftPanel
+                plan={departmentPlan}
+                onApplied={(savedPlan) => {
+                  setDepartmentPlan(savedPlan);
+                  void Promise.all([loadPlans(true), refreshDashboard()]);
+                }}
+              />
               <PlanStepsEditor plan={departmentPlan} interns={dashboard.interns} onChange={setDepartmentPlan} />
               <button className="ghostButton" type="button" onClick={completeDepartmentPlan}>
                 Завершить план и оставить в истории
@@ -207,17 +278,13 @@ export function LeadDashboard({ user }: { user: User }) {
       <button className="secondaryButton" type="button" onClick={downloadCsv}>
         Скачать CSV-отчет
       </button>
+          </>
+        ) : (
+          <ShellLoading />
+        )
+      ) : null}
 
-      <div className="tabs inlineTabs">
-        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
-          Обзор
-        </button>
-        <button className={tab === "ai" ? "active" : ""} onClick={() => setTab("ai")}>
-          AI-сводка
-        </button>
-      </div>
-
-      {tab === "overview" ? <Overview dashboard={dashboard} onOpenIntern={openIntern} /> : aiSummary ? <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} /> : <ShellLoading />}
+      {tab === "ai" ? (aiSummary ? <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} /> : <ShellLoading />) : null}
     </section>
   );
 }

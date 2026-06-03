@@ -1,6 +1,7 @@
 import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Megaphone, Save, ShieldCheck, Sparkles, UserCog, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type StepThread, type TelegramRecoveryBroadcastResult, type User } from "../api";
+import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
 import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { Header } from "../components/Header";
@@ -568,6 +569,14 @@ function PlansView({
                 <span key={`${item}-${index}`}>{index + 1}. {item}</span>
               ))}
             </div>
+            <AssignmentDraftPanel
+              plan={plan}
+              onApplied={(savedPlan) => {
+                const updatedPlan = { ...savedPlan, lead: plan.lead };
+                setPlanList((current) => current.map((item) => (item.id === plan.id ? updatedPlan : item)));
+                onPlanChange(updatedPlan);
+              }}
+            />
             {plan.steps?.length ? (
               <div className="planTaskList">
                 {plan.steps.map((step, index) => (
