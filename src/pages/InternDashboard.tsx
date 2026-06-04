@@ -1,5 +1,5 @@
-import { Activity, BarChart3, Bot, CalendarCheck, MapPin, Send, Target } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Activity, BarChart3, Bot, CalendarCheck, CheckCircle2, ClipboardList, FileText, ListChecks, MapPin, Send, Target } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api, uploadFile, type AttendanceSummary, type Category, type Plan, type Report, type StepThread, type User } from "../api";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
@@ -14,7 +14,11 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
   const [form, setForm] = useState({ yesterday: "", todayPlan: "", blockers: "", linkedStepIds: [] as string[] });
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [stepMessage, setStepMessage] = useState("");
+  const [stepBusyId, setStepBusyId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const dailyFormRef = useRef<HTMLFormElement>(null);
+  const planRef = useRef<HTMLElement>(null);
 
   async function refresh() {
     const [reportList, currentPlan, attendanceData] = await Promise.all([
@@ -87,6 +91,37 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
     }
   }
 
+  async function claimStep(stepId: string) {
+    setStepBusyId(stepId);
+    setStepMessage("");
+    try {
+      const saved = await api<Plan>(`/api/department-plan/steps/${stepId}/claim`, { method: "POST" });
+      setPlan(saved);
+      setStepMessage("Шаг взят в работу");
+    } catch (error) {
+      setStepMessage(error instanceof Error ? error.message : "Не удалось взять шаг");
+    } finally {
+      setStepBusyId(null);
+    }
+  }
+
+  async function updateMyStepStatus(stepId: string, status: Plan["steps"][number]["status"]) {
+    setStepBusyId(stepId);
+    setStepMessage("");
+    try {
+      const saved = await api<Plan>(`/api/department-plan/steps/${stepId}/my-status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+      setPlan(saved);
+      setStepMessage("Статус шага обновлен");
+    } catch (error) {
+      setStepMessage(error instanceof Error ? error.message : "Не удалось обновить статус");
+    } finally {
+      setStepBusyId(null);
+    }
+  }
+
   const average = useMemo(() => {
     const scores = reports.map((report) => report.aiReview?.productivityScore || 0);
     return scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
@@ -96,11 +131,65 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
     () => (plan?.steps || []).filter((step) => step.assignedTo === user.id && step.status !== "done" && step.status !== "canceled"),
     [plan, user.id]
   );
+  const availableSteps = useMemo(
+    () => (plan?.steps || []).filter((step) => !step.assignedTo && step.status !== "done" && step.status !== "canceled"),
+    [plan]
+  );
+  const todayReport = useMemo(() => reports.find((report) => isToday(report.date) || isToday(report.createdAt)), [reports]);
+  const completedSteps = useMemo(() => (plan?.steps || []).filter((step) => step.status === "done").length, [plan]);
+  const planProgress = plan?.steps?.length ? Math.round((completedSteps / plan.steps.length) * 100) : 0;
 
   return (
     <section className="flow">
-      <Header eyebrow={user.categoryLabel || "Стажер"} title="Рабочий кабинет" icon={<Activity />} />
-      <div className="metrics">
+      <Header eyebrow={user.categoryLabel || "Стажер"} title="Рабочий день" icon={<Activity />} />
+
+      <section className="internCommandCenter">
+        <div className="internCommandHeader">
+          <div>
+            <span>Сегодня</span>
+            <h2>Отметка, дэйлик, шаг</h2>
+            <p>Главные действия вынесены наверх. Остальные детали можно открыть ниже, когда они понадобятся.</p>
+          </div>
+          <div className="moodStrip" aria-label="Настроение дня">
+            {(["focused", "normal", "blocked"] as const).map((item) => (
+              <button key={item} className={mood === item ? "active" : ""} onClick={() => setMood(item)} type="button">
+                {item === "focused" ? "В фокусе" : item === "normal" ? "Обычный день" : "Есть блокер"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="internActionGrid">
+          <button className={attendanceSummary?.checkedInToday ? "internActionCard done" : "internActionCard"} onClick={checkIn} type="button">
+            <span className="actionIcon"><CalendarCheck size={22} /></span>
+            <strong>{attendanceSummary?.checkedInToday ? "Отметка есть" : "Отметиться"}</strong>
+            <small>
+              {attendanceSummary?.officeLocation
+                ? `${attendanceSummary.currentWeekOfficeDays || 0}/${attendanceSummary.minWeeklyOfficeDays || 2} офиса за неделю`
+                : "Офисная точка не задана"}
+            </small>
+          </button>
+          <button className={todayReport ? "internActionCard done" : "internActionCard"} onClick={() => dailyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">
+            <span className="actionIcon"><FileText size={22} /></span>
+            <strong>{todayReport ? "Дэйлик отправлен" : "Написать дэйлик"}</strong>
+            <small>{todayReport?.aiReview ? `AI оценка ${todayReport.aiReview.productivityScore}%` : "Вчера, сегодня, блокеры"}</small>
+          </button>
+          <button className={assignedSteps.length ? "internActionCard done" : "internActionCard"} onClick={() => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">
+            <span className="actionIcon"><ListChecks size={22} /></span>
+            <strong>{assignedSteps.length ? "Шаг в работе" : "Взять шаг"}</strong>
+            <small>{assignedSteps[0]?.title || (availableSteps.length ? `${availableSteps.length} свободных шагов` : "Ждем план или назначение")}</small>
+          </button>
+        </div>
+
+        {(attendanceMessage || stepMessage) && (
+          <div className="actionMessage">
+            {attendanceMessage ? <small className={attendanceMessage === "Отметка сохранена" ? "successText" : "errorText"}>{attendanceMessage}</small> : null}
+            {stepMessage ? <small className={stepMessage.includes("Не") ? "errorText" : "successText"}>{stepMessage}</small> : null}
+          </div>
+        )}
+      </section>
+
+      <div className="metrics compactMetrics">
         <Metric icon={<CalendarCheck />} label="Отчетов" value={reports.length} />
         <Metric icon={<BarChart3 />} label="Средняя продуктивность" value={`${average}%`} />
         <Metric icon={<Target />} label="Дедлайн" value={plan?.adjustedDeadline || "не задан"} />
@@ -112,95 +201,85 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
         <Metric icon={<Bot />} label="Telegram" value={user.telegramLinked ? "привязан" : "ожидает"} />
       </div>
 
-      <section className="split">
-        <div className="panel">
-          <h2>Отметка посещаемости</h2>
-          <div className="segmented">
-            {(["focused", "normal", "blocked"] as const).map((item) => (
-              <button key={item} className={mood === item ? "active" : ""} onClick={() => setMood(item)}>
-                {item === "focused" ? "В фокусе" : item === "normal" ? "Обычный день" : "Есть блокер"}
-              </button>
-            ))}
+      <section className="panel internPlanPanel" ref={planRef}>
+        <div className="sectionTitleLine">
+          <div>
+            <span>План департамента</span>
+            <h2>{plan?.title || "План еще не создан"}</h2>
           </div>
-          <button className="primaryButton" onClick={checkIn}>
-            <CalendarCheck size={18} />
-            {attendanceSummary?.officeLocation ? "Отметиться в офисе" : "Отметиться сегодня"}
-          </button>
-          {attendanceSummary?.officeLocation ? (
-            <small>
-              {attendanceSummary.requirementMet ? "Норма офиса выполнена" : "Нужно быть в офисе минимум 2 раза в неделю"}
-              {attendanceSummary.latest?.distanceMeters ? ` · последнее расстояние ${attendanceSummary.latest.distanceMeters} м` : ""}
-            </small>
-          ) : (
-            <small>Офисная точка еще не задана тимлидом.</small>
-          )}
-          {attendanceMessage && <small className={attendanceMessage === "Отметка сохранена" ? "successText" : "errorText"}>{attendanceMessage}</small>}
+          {plan?.steps?.length ? (
+            <div className="planProgressBadge">
+              <strong>{planProgress}%</strong>
+              <span>{completedSteps}/{plan.steps.length} готово</span>
+            </div>
+          ) : null}
         </div>
 
-        <div className="panel">
-          <h2>План департамента</h2>
-          {plan ? (
-            <>
-              <div className="deadline">
-                <span>Базовый дедлайн: {plan.baseDeadline}</span>
-                <strong>Текущий: {plan.adjustedDeadline}</strong>
+        {plan ? (
+          <>
+            <div className="deadline compactDeadline">
+              <span>Базовый дедлайн: {plan.baseDeadline}</span>
+              <strong>Текущий: {plan.adjustedDeadline}</strong>
+            </div>
+            <div className="progressBar wideProgress">
+              <i style={{ width: `${planProgress}%` }} />
+            </div>
+
+            {assignedSteps.length ? (
+              <div className="internTaskSection">
+                <h3><CheckCircle2 size={18} /> Ваши шаги</h3>
+                <div className="internTaskGrid">
+                  {assignedSteps.map((step) => (
+                    <InternPlanStepCard
+                      key={step.id}
+                      step={step}
+                      mine
+                      busy={stepBusyId === step.id}
+                      onClaim={() => claimStep(step.id)}
+                      onStatus={(status) => updateMyStepStatus(step.id, status)}
+                    />
+                  ))}
+                </div>
               </div>
-              <p>{plan.aiRationale}</p>
-              <div className="timeline">
-                {plan.milestones.map((item) => (
-                  <span key={item}>{item}</span>
+            ) : null}
+
+            {availableSteps.length ? (
+              <div className="internTaskSection">
+                <h3><ClipboardList size={18} /> Свободные шаги</h3>
+                <div className="internTaskGrid">
+                  {availableSteps.slice(0, 6).map((step) => (
+                    <InternPlanStepCard
+                      key={step.id}
+                      step={step}
+                      busy={stepBusyId === step.id}
+                      onClaim={() => claimStep(step.id)}
+                      onStatus={(status) => updateMyStepStatus(step.id, status)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {!assignedSteps.length && !availableSteps.length ? (
+              <p className="mutedText">Все шаги уже назначены или закрыты. Дэйлик можно отправить без привязки к шагу.</p>
+            ) : null}
+
+            {plan.milestones.length ? (
+              <div className="timeline compactTimeline">
+                {plan.milestones.slice(0, 4).map((item, index) => (
+                  <span key={`${item}-${index}`}>{index + 1}. {item}</span>
                 ))}
               </div>
-              {plan.steps?.length ? (
-                <div className="planSteps">
-                  <h3>Шаги плана</h3>
-                  <div className="stepList">
-                    {plan.steps.map((step) => (
-                      <article className={step.assignedTo === user.id ? "stepItem assigned" : "stepItem"} key={step.id}>
-                        <div>
-                          <strong>{step.title}</strong>
-                          <p>{step.description}</p>
-                          {step.technicalSpec ? (
-                            <div className="stepDetails">
-                              <strong>ТЗ</strong>
-                              <p>{step.technicalSpec}</p>
-                            </div>
-                          ) : null}
-                          {step.technicalInstruction ? (
-                            <div className="stepDetails">
-                              <strong>Инструкция</strong>
-                              <p>{step.technicalInstruction}</p>
-                            </div>
-                          ) : null}
-                          <small>
-                            До {step.deadline} ·{" "}
-                            {step.status === "done"
-                              ? "готово"
-                              : step.status === "in_progress"
-                                ? "в работе"
-                                : step.status === "canceled"
-                                  ? "отменено"
-                                  : "ожидает"}
-                            {step.overdue ? " · просрочено" : ""}
-                            {step.assignedTo === user.id ? " · назначено вам" : ""}
-                          </small>
-                        </div>
-                        {step.assignedTo === user.id ? <InternStepThread stepId={step.id} /> : null}
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <p>Тимлид еще не утвердил план проекта для вашего департамента. Дэйлики можно писать, но они будут привязаны к плану после его создания.</p>
-          )}
-        </div>
+            ) : null}
+          </>
+        ) : (
+          <p>Тимлид еще не утвердил план проекта для вашего департамента. Дэйлики можно писать сейчас, а шаги появятся после создания плана.</p>
+        )}
       </section>
 
       <DepartmentChangePanel user={user} onUser={onUser} />
 
-      <form className="panel form" onSubmit={submitReport}>
+      <form className="panel form dailyReportPanel" onSubmit={submitReport} ref={dailyFormRef}>
         <h2>{editingReportId ? "Редактирование дэйлика" : "Дневной отчет"}</h2>
         <label>
           Что сделано вчера
@@ -257,6 +336,61 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
       />
     </section>
   );
+}
+
+function InternPlanStepCard({
+  step,
+  mine,
+  busy,
+  onClaim,
+  onStatus
+}: {
+  step: Plan["steps"][number];
+  mine?: boolean;
+  busy: boolean;
+  onClaim: () => void;
+  onStatus: (status: Plan["steps"][number]["status"]) => void;
+}) {
+  return (
+    <article className={mine ? "internStepCard mine" : "internStepCard"}>
+      <div className="internStepHeader">
+        <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusText(step.status)}</span>
+        <small>До {step.deadline}{step.overdue ? " · просрочено" : ""}</small>
+      </div>
+      <strong>{step.title}</strong>
+      <p>{step.description || "Описание появится после уточнения шага."}</p>
+      {(step.technicalSpec || step.technicalInstruction) && (
+        <div className="stepMaterialPreview">
+          {step.technicalSpec ? <span>ТЗ добавлено</span> : null}
+          {step.technicalInstruction ? <span>Инструкция добавлена</span> : null}
+        </div>
+      )}
+      {mine ? (
+        <>
+          <div className="stepStatusActions">
+            <button className="secondaryButton" type="button" onClick={() => onStatus("in_progress")} disabled={busy || step.status === "in_progress"}>
+              В работе
+            </button>
+            <button className="primaryButton" type="button" onClick={() => onStatus("done")} disabled={busy || step.status === "done"}>
+              Готово
+            </button>
+          </div>
+          <InternStepThread stepId={step.id} />
+        </>
+      ) : (
+        <button className="primaryButton" type="button" onClick={onClaim} disabled={busy}>
+          {busy ? "Назначаю..." : "Взять шаг"}
+        </button>
+      )}
+    </article>
+  );
+}
+
+function stepStatusText(status: Plan["steps"][number]["status"]) {
+  if (status === "done") return "готово";
+  if (status === "in_progress") return "в работе";
+  if (status === "canceled") return "отменено";
+  return "ожидает";
 }
 
 function isToday(value?: string) {

@@ -1,4 +1,4 @@
-import { BarChart3, Bot, BrainCircuit, CalendarCheck, CheckCircle2, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
+import { BarChart3, Bot, BrainCircuit, CalendarCheck, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, getToken, uploadFile, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type RiskCenter, type StepThread, type User } from "../api";
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
@@ -34,6 +34,7 @@ export function LeadDashboard({ user }: { user: User }) {
   const [planHistory, setPlanHistory] = useState<Plan[]>([]);
   const [officeLocation, setOfficeLocation] = useState<OfficeLocation | null>(null);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
+  const [viewingPlan, setViewingPlan] = useState<Plan | null>(null);
   const [tab, setTab] = useState<"overview" | "plans" | "automation" | "ai">("overview");
   const [loadedSections, setLoadedSections] = useState({
     decision: false,
@@ -78,6 +79,7 @@ export function LeadDashboard({ user }: { user: User }) {
     ]);
     setDepartmentPlan(planData);
     setPlanHistory(plansData);
+    setViewingPlan((current) => (current ? plansData.find((plan) => plan.id === current.id) || planData || current : current));
     if (planData) {
       setPlanForm({
         title: planData.title,
@@ -216,18 +218,26 @@ export function LeadDashboard({ user }: { user: User }) {
       {tab === "plans" ? (
         loadedSections.plans ? (
           <>
-      <section className="split">
-        <form className="panel form" onSubmit={submitDepartmentPlan}>
-          <h2>План проекта департамента</h2>
-          <p className="mutedText">План создается и утверждается для вашего департамента отдельной версией. Предыдущие планы остаются в истории.</p>
+      <section className="planWorkspace">
+        <form className="panel form planCreatePanel" onSubmit={submitDepartmentPlan}>
+          <div className="sectionTitleLine">
+            <div>
+              <span>Создание версии</span>
+              <h2>План проекта департамента</h2>
+            </div>
+            <Save size={20} />
+          </div>
+          <p className="mutedText">Новая версия не затирает историю. После сохранения AI разложит план на шаги, а детали можно открыть в отдельном окне.</p>
           <label>
             Название
             <input value={planForm.title} onChange={(event) => setPlanForm({ ...planForm, title: event.target.value })} />
           </label>
-          <label>
-            Базовый дедлайн
-            <input type="date" value={planForm.baseDeadline} onChange={(event) => setPlanForm({ ...planForm, baseDeadline: event.target.value })} />
-          </label>
+          <div className="officeGrid compactOfficeGrid">
+            <label>
+              Базовый дедлайн
+              <input type="date" value={planForm.baseDeadline} onChange={(event) => setPlanForm({ ...planForm, baseDeadline: event.target.value })} />
+            </label>
+          </div>
           <label>
             Этапы
             <textarea value={planForm.milestones} onChange={(event) => setPlanForm({ ...planForm, milestones: event.target.value })} />
@@ -238,47 +248,35 @@ export function LeadDashboard({ user }: { user: User }) {
           </button>
         </form>
 
-        <div className="panel">
-          <h2>Утвержденный план</h2>
+        <div className="panel planListPanel">
+          <div className="sectionTitleLine">
+            <div>
+              <span>Активный план</span>
+              <h2>Утвержденная работа</h2>
+            </div>
+            {departmentPlan ? <span className="status ok">#{departmentPlan.version || 1}</span> : null}
+          </div>
           {departmentPlan ? (
-            <>
-              <div className="deadline">
-                <span>Базовый дедлайн: {departmentPlan.baseDeadline}</span>
-                <strong>Текущий: {departmentPlan.adjustedDeadline}</strong>
-              </div>
-              <div className="status ok">
-                <CheckCircle2 size={14} />
-                План #{departmentPlan.version || 1} · {departmentPlan.status === "approved" ? "утвержден" : "черновик"}
-              </div>
-              <p>{departmentPlan.aiRationale}</p>
-              <div className="timeline">
-                {departmentPlan.milestones.map((item) => (
-                  <span key={item}>{item}</span>
-                ))}
-              </div>
-              <AssignmentDraftPanel
-                plan={departmentPlan}
-                onApplied={(savedPlan) => {
-                  setDepartmentPlan(savedPlan);
-                  void Promise.all([loadPlans(true), refreshDashboard()]);
-                }}
-              />
-              <ExternalResourcesPanel
-                linkedEntityType="plan"
-                linkedEntityId={departmentPlan.id}
-                planId={departmentPlan.id}
-                category={departmentPlan.category}
-              />
-              <PlanStepsEditor plan={departmentPlan} interns={dashboard.interns} onChange={setDepartmentPlan} />
-              <button className="ghostButton" type="button" onClick={completeDepartmentPlan}>
-                Завершить план и оставить в истории
-              </button>
-            </>
+            <LeadPlanSummaryCard plan={departmentPlan} onOpen={() => setViewingPlan(departmentPlan)} />
           ) : (
             <p>План еще не создан. После утверждения он появится у всех стажеров вашего департамента.</p>
           )}
         </div>
       </section>
+
+      {viewingPlan ? (
+        <LeadPlanDetailsModal
+          plan={viewingPlan}
+          interns={dashboard.interns}
+          onClose={() => setViewingPlan(null)}
+          onPlanChange={(savedPlan) => {
+            setDepartmentPlan(savedPlan);
+            setViewingPlan(savedPlan);
+            void Promise.all([loadPlans(true), refreshDashboard()]);
+          }}
+          onComplete={completeDepartmentPlan}
+        />
+      ) : null}
 
       <PlanHistoryPanel plans={planHistory} />
 
@@ -344,6 +342,100 @@ function PlanProgressPanel({ plans }: { plans: Dashboard["stats"]["plans"] }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function LeadPlanSummaryCard({ plan, onOpen }: { plan: Plan; onOpen: () => void }) {
+  const total = plan.steps?.length || 0;
+  const done = plan.steps?.filter((step) => step.status === "done").length || 0;
+  const assigned = plan.steps?.filter((step) => step.assignedTo).length || 0;
+  const progress = total ? Math.round((done / total) * 100) : 0;
+
+  return (
+    <button className="planSummaryCard" type="button" onClick={onOpen}>
+      <div className="planCardHeader">
+        <div>
+          <strong>{plan.title}</strong>
+          <p>Текущий дедлайн: {plan.adjustedDeadline}</p>
+        </div>
+        <span className="status ok">{plan.status === "approved" ? "утвержден" : "черновик"}</span>
+      </div>
+      <div className="progressBar wideProgress">
+        <i style={{ width: `${progress}%` }} />
+      </div>
+      <div className="planMetaGrid">
+        <div>
+          <span>Готово</span>
+          <strong>{done}/{total}</strong>
+        </div>
+        <div>
+          <span>Назначено</span>
+          <strong>{assigned}/{total}</strong>
+        </div>
+        <div>
+          <span>Версия</span>
+          <strong>#{plan.version || 1}</strong>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function LeadPlanDetailsModal({
+  plan,
+  interns,
+  onClose,
+  onPlanChange,
+  onComplete
+}: {
+  plan: Plan;
+  interns: Dashboard["interns"];
+  onClose: () => void;
+  onPlanChange: (plan: Plan) => void;
+  onComplete: () => Promise<void>;
+}) {
+  return (
+    <div className="modalOverlay" role="presentation" onMouseDown={onClose}>
+      <section className="modalContent planDetailModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="modalHeader modalHeaderSticky">
+          <div>
+            <span>Детали плана</span>
+            <h2>{plan.title}</h2>
+          </div>
+          <button className="iconButton" type="button" onClick={onClose}>x</button>
+        </header>
+        <div className="modalBody planDetailBody">
+          <div className="planHeroPanel">
+            <div className="deadline">
+              <span>Базовый дедлайн: {plan.baseDeadline}</span>
+              <strong>Текущий: {plan.adjustedDeadline}</strong>
+            </div>
+            <p>{plan.aiRationale}</p>
+            <div className="timeline compactTimeline">
+              {plan.milestones.map((item, index) => (
+                <span key={`${item}-${index}`}>{index + 1}. {item}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="planDetailGrid">
+            <div className="planDetailMain">
+              <PlanStepsEditor plan={plan} interns={interns} onChange={onPlanChange} />
+            </div>
+            <aside className="planDetailAside">
+              <AssignmentDraftPanel plan={plan} onApplied={onPlanChange} />
+              <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
+              <button className="ghostButton lightButton" type="button" onClick={async () => {
+                await onComplete();
+                onClose();
+              }}>
+                Завершить план и оставить в истории
+              </button>
+            </aside>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 

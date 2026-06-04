@@ -1606,6 +1606,408 @@ textarea {
   margin: 0;
 }
 
+.compactMetrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.internCommandCenter,
+.planWorkspace,
+.planListPanel,
+.planCreatePanel {
+  min-width: 0;
+}
+
+.internCommandCenter {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #d9e5ef;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(16, 118, 90, 0.08), rgba(14, 116, 144, 0.08)),
+    #ffffff;
+  box-shadow: 0 18px 46px rgba(20, 34, 55, 0.08);
+}
+
+.internCommandHeader,
+.sectionTitleLine {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.internCommandHeader span,
+.sectionTitleLine span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.internCommandHeader h2,
+.sectionTitleLine h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  line-height: 1.18;
+}
+
+.internCommandHeader p {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.moodStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: min(420px, 100%);
+  padding: 5px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.moodStrip button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.moodStrip .active {
+  background: #102033;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(16, 32, 51, 0.16);
+}
+
+.internActionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.internActionCard,
+.planSummaryCard {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #dce7f2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  text-align: left;
+  box-shadow: 0 12px 30px rgba(20, 34, 55, 0.06);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.internActionCard {
+  min-height: 132px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px;
+}
+
+.internActionCard:hover,
+.planSummaryCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(16, 118, 90, 0.42);
+  box-shadow: 0 18px 42px rgba(20, 34, 55, 0.1);
+}
+
+.internActionCard.done {
+  border-color: rgba(16, 118, 90, 0.36);
+  background: #f3fbf7;
+}
+
+.actionIcon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e7f6ef;
+  color: #10765a;
+}
+
+.internActionCard strong {
+  font-size: 18px;
+}
+
+.internActionCard small,
+.actionMessage small {
+  color: #64748b;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.actionMessage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.internPlanPanel {
+  display: grid;
+  gap: 18px;
+}
+
+.planProgressBadge {
+  min-width: 118px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  text-align: right;
+}
+
+.planProgressBadge strong {
+  color: #10765a;
+  font-size: 22px;
+}
+
+.planProgressBadge span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.compactDeadline {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.wideProgress {
+  width: 100%;
+}
+
+.internTaskSection {
+  display: grid;
+  gap: 12px;
+}
+
+.internTaskSection h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #172033;
+  font-size: 16px;
+}
+
+.internTaskSection h3 svg {
+  color: #10765a;
+}
+
+.internTaskGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 12px;
+}
+
+.internStepCard {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(20, 34, 55, 0.05);
+}
+
+.internStepCard.mine {
+  border-color: rgba(16, 118, 90, 0.34);
+  background: #fbfefd;
+}
+
+.internStepHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.internStepHeader small,
+.internStepCard p {
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.internStepCard strong,
+.internStepCard p {
+  overflow-wrap: anywhere;
+}
+
+.stepMaterialPreview,
+.stepStatusActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stepMaterialPreview span {
+  border-radius: 8px;
+  background: #eef6ff;
+  color: #0f4f75;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.stepStatusActions .primaryButton,
+.stepStatusActions .secondaryButton {
+  flex: 1;
+  min-width: 120px;
+}
+
+.dailyReportPanel textarea {
+  min-height: 118px;
+}
+
+.planWorkspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.82fr) minmax(360px, 1.18fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.compactOfficeGrid {
+  grid-template-columns: minmax(160px, 1fr);
+}
+
+.planSummaryCard {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.planSummaryCard .planMetaGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.modalContent {
+  width: min(1240px, 100%);
+  height: min(920px, calc(100vh - 32px));
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #d6e1ed;
+  border-radius: 8px;
+  background: #f7f9fc;
+  box-shadow: 0 32px 90px rgba(8, 16, 28, 0.34);
+}
+
+.planDetailModal {
+  width: min(1320px, 100%);
+}
+
+.modalHeaderSticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 18px 20px;
+  border-bottom: 1px solid #dbe4ee;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.modalHeader h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+}
+
+.modalBody {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.planDetailBody {
+  display: grid;
+  gap: 16px;
+}
+
+.planHeroPanel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #dce7f2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.planHeroPanel p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.planDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.34fr) minmax(320px, 0.66fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.planDetailMain,
+.planDetailAside {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.planDetailAside {
+  position: sticky;
+  top: 0;
+}
+
+.planDetailAside > .assignmentPanel,
+.planDetailAside > .externalResourcesPanel {
+  margin: 0;
+}
+
+.planTaskList {
+  gap: 12px;
+}
+
+.stepItem.compactStep {
+  padding: 10px;
+  background: #ffffff;
+  border-color: #dfe8f2;
+  box-shadow: 0 8px 22px rgba(20, 34, 55, 0.04);
+}
+
+.stepSummaryButton {
+  border: 1px solid transparent;
+  background: #fbfdff;
+}
+
+.stepSummaryButton:hover {
+  border-color: rgba(16, 118, 90, 0.26);
+  background: #ffffff;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1627,6 +2029,10 @@ textarea {
   .metrics,
   .categoryGrid,
   .split,
+  .compactMetrics,
+  .internActionGrid,
+  .planWorkspace,
+  .planDetailGrid,
   .reportGrid,
   .internCardGrid,
   .decisionGrid,
@@ -1664,6 +2070,21 @@ textarea {
     flex-direction: column;
   }
 
+  .internCommandHeader,
+  .sectionTitleLine,
+  .planCardHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .moodStrip {
+    min-width: 0;
+  }
+
+  .planDetailAside {
+    position: static;
+  }
+
   .stepSummaryButton {
     grid-template-columns: 34px minmax(0, 1fr);
   }
@@ -1679,6 +2100,10 @@ textarea {
 
   .planMetaGrid {
     grid-template-columns: 1fr;
+  }
+
+  .modalContent {
+    height: calc(100vh - 16px);
   }
 
   .mobileBottomNav {
@@ -1746,6 +2171,25 @@ textarea {
 
   .modalBackdrop {
     padding: 14px;
+  }
+
+  .modalOverlay {
+    padding: 8px;
+  }
+
+  .modalBody {
+    padding: 12px;
+  }
+
+  .internCommandCenter,
+  .panel {
+    padding: 16px;
+  }
+
+  .moodStrip,
+  .compactDeadline,
+  .planSummaryCard .planMetaGrid {
+    grid-template-columns: 1fr;
   }
 }
 

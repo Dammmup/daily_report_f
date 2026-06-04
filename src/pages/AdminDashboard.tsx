@@ -524,7 +524,10 @@ function PlansView({
       method: "PATCH",
       body: JSON.stringify(patch)
     });
-    onPlanChange({ ...saved, lead: plan.lead });
+    const savedWithLead = { ...saved, lead: plan.lead };
+    setPlanList((current) => current.map((item) => (item.id === savedWithLead.id ? savedWithLead : item)));
+    setViewingPlan((current) => (current?.id === savedWithLead.id ? savedWithLead : current));
+    onPlanChange(savedWithLead);
   }
 
   async function deletePlan(plan: AdminPlan) {
@@ -1068,15 +1071,18 @@ function AdminPlanDetailsModal({
   onEditStep: (step: Plan["steps"][number]) => void;
 }) {
   return (
-    <div className="modalOverlay" onClick={onClose}>
-      <div className="modalContent largeModal" onClick={(e) => e.stopPropagation()}>
-        <header className="modalHeader">
-          <h2>Детали плана: {plan.title}</h2>
+    <div className="modalOverlay" role="presentation" onMouseDown={onClose}>
+      <section className="modalContent planDetailModal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+        <header className="modalHeader modalHeaderSticky">
+          <div>
+            <span>Детали плана</span>
+            <h2>{plan.title}</h2>
+          </div>
           <button className="iconButton" type="button" onClick={onClose}>
             <X size={20} />
           </button>
         </header>
-        <div className="modalBody flow">
+        <div className="modalBody planDetailBody">
           <div className="planMetaGrid">
             <div>
               <span>Тимлид</span>
@@ -1099,38 +1105,44 @@ function AdminPlanDetailsModal({
               </span>
             ))}
           </div>
-          <AssignmentDraftPanel
-            plan={plan}
-            onApplied={(savedPlan) => {
-              onPlanChange(savedPlan);
-            }}
-          />
-          <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
-          {plan.steps?.length ? (
-            <div className="planTaskList">
-              {plan.steps.map((step, index) => (
-                <article className="stepItem compactStep" key={step.id}>
-                  <button className="stepSummaryButton" type="button" onClick={() => onEditStep(step)}>
-                    <span className="stepNumber">{index + 1}</span>
-                    <span className="stepSummaryText">
-                      <strong>{step.title}</strong>
-                      <span>{step.description || "Описание не заполнено"}</span>
-                    </span>
-                    <span className="stepMeta">
-                      <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
-                      <small>
-                        {step.deadline}
-                        {step.assignedTo ? " · назначен" : " · не назначен"}
-                      </small>
-                    </span>
-                  </button>
-                  <AdminStepMaterials stepId={step.id} />
-                </article>
-              ))}
+          <div className="planDetailGrid">
+            <div className="planDetailMain">
+              {plan.steps?.length ? (
+                <div className="planTaskList">
+                  {plan.steps.map((step, index) => (
+                    <article className="stepItem compactStep" key={step.id}>
+                      <button className="stepSummaryButton" type="button" onClick={() => onEditStep(step)}>
+                        <span className="stepNumber">{index + 1}</span>
+                        <span className="stepSummaryText">
+                          <strong>{step.title}</strong>
+                          <span>{step.description || "Описание не заполнено"}</span>
+                        </span>
+                        <span className="stepMeta">
+                          <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusLabel(step.status)}</span>
+                          <small>
+                            {step.deadline}
+                            {step.assignedTo ? " · назначен" : " · не назначен"}
+                          </small>
+                        </span>
+                      </button>
+                      <AdminStepMaterials stepId={step.id} />
+                    </article>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          ) : null}
+            <aside className="planDetailAside">
+              <AssignmentDraftPanel
+                plan={plan}
+                onApplied={(savedPlan) => {
+                  onPlanChange(savedPlan);
+                }}
+              />
+              <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
+            </aside>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
