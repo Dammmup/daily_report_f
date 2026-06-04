@@ -7,6 +7,7 @@ import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { ExternalResourcesPanel } from "../components/ExternalResourcesPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
+import { OfficeLocationMapPanel } from "../components/OfficeLocationMapPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
@@ -92,7 +93,7 @@ export function LeadDashboard({ user }: { user: User }) {
 
   async function loadOfficeLocation(force = false) {
     if (!force && loadedSections.office) return;
-    setOfficeLocation(await api<OfficeLocation | null>("/api/attendance/office-location"));
+    setOfficeLocation(await api<OfficeLocation | null>("/api/attendance/office-location/global"));
     setLoadedSections((current) => ({ ...current, office: true }));
   }
 
@@ -674,84 +675,12 @@ function StepThreadPanel({ stepId }: { stepId: string }) {
 }
 
 function OfficeLocationPanel({ location, onChange }: { location: OfficeLocation | null; onChange: (location: OfficeLocation) => void }) {
-  const [form, setForm] = useState({
-    latitude: location?.latitude ? String(location.latitude) : "",
-    longitude: location?.longitude ? String(location.longitude) : "",
-    radiusMeters: String(location?.radiusMeters || 150),
-    minWeeklyOfficeDays: String(location?.minWeeklyOfficeDays || 2)
-  });
-
-  useEffect(() => {
-    setForm({
-      latitude: location?.latitude ? String(location.latitude) : "",
-      longitude: location?.longitude ? String(location.longitude) : "",
-      radiusMeters: String(location?.radiusMeters || 150),
-      minWeeklyOfficeDays: String(location?.minWeeklyOfficeDays || 2)
-    });
-  }, [location]);
-
-  function useCurrentPosition() {
-    navigator.geolocation.getCurrentPosition((position) => {
-      setForm((current) => ({
-        ...current,
-        latitude: position.coords.latitude.toFixed(6),
-        longitude: position.coords.longitude.toFixed(6)
-      }));
-    });
-  }
-
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    const saved = await api<OfficeLocation>("/api/attendance/office-location", {
-      method: "PUT",
-      body: JSON.stringify({
-        latitude: Number(form.latitude),
-        longitude: Number(form.longitude),
-        radiusMeters: Number(form.radiusMeters),
-        minWeeklyOfficeDays: Number(form.minWeeklyOfficeDays)
-      })
-    });
-    onChange(saved);
-  }
-
   return (
-    <form className="panel form" onSubmit={save}>
-      <h2>Офисная точка посещаемости</h2>
-      <p className="mutedText">Стажер сможет отметиться в офисе только если браузер покажет координаты внутри заданного радиуса. Норма по умолчанию: 2 раза в неделю.</p>
-      <div className="officeGrid">
-        <label>
-          Широта
-          <input value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} placeholder="43.238949" />
-        </label>
-        <label>
-          Долгота
-          <input value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} placeholder="76.889709" />
-        </label>
-        <label>
-          Радиус, м
-          <input type="number" min={25} max={2000} value={form.radiusMeters} onChange={(event) => setForm({ ...form, radiusMeters: event.target.value })} />
-        </label>
-        <label>
-          Норма в неделю
-          <input type="number" min={1} max={7} value={form.minWeeklyOfficeDays} onChange={(event) => setForm({ ...form, minWeeklyOfficeDays: event.target.value })} />
-        </label>
-      </div>
-      <div className="buttonRow">
-        <button className="ghostButton" type="button" onClick={useCurrentPosition}>
-          <MapPin size={16} />
-          Взять мои координаты
-        </button>
-        <button className="primaryButton">
-          <Save size={18} />
-          Сохранить точку
-        </button>
-      </div>
-      {location ? (
-        <small>
-          Текущая точка: {location.latitude}, {location.longitude} · радиус {location.radiusMeters} м
-        </small>
-      ) : null}
-    </form>
+    <OfficeLocationMapPanel
+      location={location}
+      onSaved={onChange}
+      description="Стажер сможет отметиться в офисе только если геолокация попадет внутрь выбранного круга. Точка применяется ко всем департаментам."
+    />
   );
 }
 

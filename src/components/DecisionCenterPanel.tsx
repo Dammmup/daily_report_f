@@ -1,7 +1,67 @@
-import { AlertTriangle, CheckCircle2, ClipboardList, Target, Users } from "lucide-react";
-import type { DecisionCenter } from "../api";
+import { AlertTriangle, CheckCircle2, ClipboardList, RefreshCw, Target, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { api, type DecisionCenter, type Plan, type PlanFitResponse } from "../api";
 
 export function DecisionCenterPanel({ data }: { data: DecisionCenter }) {
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [selectedStepId, setSelectedStepId] = useState("");
+  const [fit, setFit] = useState<PlanFitResponse | null>(null);
+  const [loadingFit, setLoadingFit] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadPlans() {
+      const endpoint = data.scope === "all" ? "/api/admin/plans" : "/api/department-plans";
+      const planList = (await api<Plan[]>(endpoint)).filter((plan) => plan.status === "approved" || plan.status === "draft");
+      if (!mounted) return;
+      setPlans(planList);
+      setSelectedPlanId((current) => current || planList[0]?.id || data.plan?.id || "");
+    }
+
+    void loadPlans();
+    return () => {
+      mounted = false;
+    };
+  }, [data.plan?.id, data.scope]);
+
+  const selectedPlan = useMemo(() => plans.find((plan) => plan.id === selectedPlanId) || null, [plans, selectedPlanId]);
+  const selectedStep = useMemo(() => selectedPlan?.steps.find((step) => step.id === selectedStepId) || null, [selectedPlan, selectedStepId]);
+  const candidates = fit?.candidates || (selectedPlanId === data.plan?.id && !selectedStepId ? data.recommended : []);
+
+  useEffect(() => {
+    if (!selectedPlanId) {
+      setFit(null);
+      return;
+    }
+
+    let mounted = true;
+    async function loadFit() {
+      setLoadingFit(true);
+      try {
+        const targetText = selectedStep
+          ? `Кто лучше подойдет на задачу "${selectedStep.title}" в выбранном плане?`
+          : "Кто лучше подойдет на выбранный действующий план?";
+        const result = await api<PlanFitResponse>("/api/assistant/plan-fit", {
+          method: "POST",
+          body: JSON.stringify({
+            question: targetText,
+            planId: selectedPlanId,
+            stepId: selectedStepId || undefined
+          })
+        });
+        if (mounted) setFit(result);
+      } finally {
+        if (mounted) setLoadingFit(false);
+      }
+    }
+
+    void loadFit();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedPlanId, selectedStepId, selectedStep]);
+
   return (
     <section className="panel decisionPanel">
       <div className="decisionHeader">
@@ -12,18 +72,62 @@ export function DecisionCenterPanel({ data }: { data: DecisionCenter }) {
         <Target />
       </div>
 
+      <div className="decisionSelector">
+        <label>
+          Действующий план
+          <select
+            value={selectedPlanId}
+            onChange={(event) => {
+              setSelectedPlanId(event.target.value);
+              setSelectedStepId("");
+              setFit(null);
+            }}
+          >
+            {plans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {plan.title} · {plan.categoryLabel || plan.category}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Задача внутри плана
+          <select
+            value={selectedStepId}
+            onChange={(event) => {
+              setSelectedStepId(event.target.value);
+              setFit(null);
+            }}
+            disabled={!selectedPlan?.steps.length}
+          >
+            <option value="">Весь план</option>
+            {selectedPlan?.steps.map((step, index) => (
+              <option key={step.id} value={step.id}>
+                {index + 1}. {step.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="decisionTargetCard">
+          <span>{selectedStep ? "Подбор под задачу" : "Подбор под план"}</span>
+          <strong>{selectedStep?.title || selectedPlan?.title || "План не выбран"}</strong>
+          {loadingFit ? <small><RefreshCw size={14} /> AI обновляет рекомендации...</small> : <small>{candidates.length ? `Кандидатов: ${candidates.length}` : "Кандидатов пока нет"}</small>}
+        </div>
+      </div>
+
       <div className="decisionGrid">
         <article>
           <strong>
             <CheckCircle2 size={17} />
             Кого поставить на план
           </strong>
-          {data.recommended.length ? (
-            data.recommended.map((candidate) => (
+          {candidates.length ? (
+            candidates.map((candidate) => (
               <div className="decisionItem" key={candidate.user.id}>
                 <span>{candidate.user.name}</span>
                 <b>{candidate.score}/100</b>
                 <small>{candidate.matchReason}</small>
+                <small>{candidate.user.categoryLabel || "департамент не выбран"} · {candidate.source === "same_department" ? "свой департамент" : "другой департамент"}</small>
               </div>
             ))
           ) : (

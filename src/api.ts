@@ -71,6 +71,7 @@ export type Plan = {
   leadId?: string;
   title: string;
   category: Category;
+  categoryLabel?: string;
   version: number;
   status: "draft" | "approved" | "completed" | "archived";
   startDate: string;
@@ -249,6 +250,7 @@ export type PlanFitResponse = {
     adjustedDeadline: string;
     milestones: string[];
   } | null;
+  target?: { type: "plan" } | { type: "step"; stepId: string; stepTitle: string };
   candidates: PlanFitCandidate[];
   fallbackUsed: boolean;
 };

@@ -7,6 +7,7 @@ import { DecisionCenterPanel } from "../components/DecisionCenterPanel";
 import { ExternalResourcesPanel } from "../components/ExternalResourcesPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
+import { OfficeLocationMapPanel } from "../components/OfficeLocationMapPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
@@ -85,7 +86,8 @@ export function AdminDashboard() {
 
   async function loadOfficeLocations(force = false) {
     if (!force && loadedTabs.office) return;
-    setOfficeLocations(await api<OfficeLocation[]>("/api/attendance/office-locations"));
+    const location = await api<OfficeLocation | null>("/api/attendance/office-location/global");
+    setOfficeLocations(location ? [location] : []);
     setLoadedTabs((current) => ({ ...current, office: true }));
   }
 
@@ -222,14 +224,15 @@ export function AdminDashboard() {
 }
 
 function AdminOfficeLocationsView({ locations, onSaved }: { locations: OfficeLocation[]; onSaved: () => Promise<void> }) {
-  const locationByCategory = new Map(locations.map((location) => [location.category, location]));
+  const location = locations[0] || null;
 
   return (
-    <section className="internCardGrid">
-      {categoryOptions.map((category) => (
-        <AdminOfficeLocationCard key={category.value} category={category.value} label={category.label} location={locationByCategory.get(category.value)} onSaved={onSaved} />
-      ))}
-    </section>
+    <OfficeLocationMapPanel
+      location={location}
+      onSaved={async () => onSaved()}
+      title="Офисная точка для всех департаментов"
+      description="Выберите точку на карте, задайте радиус и норму посещений. После сохранения эти параметры применятся ко всем департаментам."
+    />
   );
 }
 
