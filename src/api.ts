@@ -121,6 +121,21 @@ export type TelegramRecoveryBroadcastResult = {
   planAnnouncementMessages: number;
 };
 
+export type TelegramDepartmentGroup = {
+  id: string;
+  chatId: string;
+  title: string;
+  category?: Category;
+  categoryLabel?: string;
+  active: boolean;
+  isPrimary: boolean;
+  membersSeen: number;
+  motivationEnabled: boolean;
+  lastActivityAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type OfficeLocation = {
   id: string;
   category: Category;

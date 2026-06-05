@@ -12,6 +12,7 @@ import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
+import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { categoryOptions } from "../constants";
 
 type DraftUser = User & {
@@ -212,6 +213,8 @@ export function AdminDashboard() {
           {telegramBroadcastBusy ? "Отправляю..." : "Разослать в Telegram"}
         </button>
       </section>
+
+      <TelegramGroupsPanel compact />
 
       <div className="tabs adminTabs">
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>

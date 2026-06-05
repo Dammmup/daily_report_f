@@ -458,6 +458,53 @@ textarea {
   font-weight: 700;
 }
 
+.telegramGroupsPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.compactTelegramGroups {
+  margin-top: -4px;
+}
+
+.telegramGroupList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+  gap: 12px;
+}
+
+.telegramGroupCard {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.telegramGroupCard.primary {
+  border-color: #10765a;
+  background: #f0fbf6;
+}
+
+.telegramGroupCard strong,
+.telegramGroupCard span,
+.telegramGroupCard small {
+  overflow-wrap: anywhere;
+}
+
+.telegramGroupCard > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.telegramGroupCard > div:first-child span,
+.telegramGroupCard > div:first-child small {
+  color: #64748b;
+  font-size: 13px;
+}
+
 .linkedStepsBox {
   display: grid;
   gap: 10px;

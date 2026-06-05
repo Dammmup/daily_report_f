@@ -12,6 +12,7 @@ import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
+import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { TelegramHelp } from "../components/TelegramHelp";
 
 type PlanForm = {
@@ -239,6 +240,8 @@ export function LeadDashboard({ user }: { user: User }) {
             <LeadDailyPanel />
             <TelegramDigestPanel />
           </section>
+
+          <TelegramGroupsPanel />
 
           {loadedSections.office ? <OfficeLocationPanel location={officeLocation} onChange={setOfficeLocation} /> : <ShellLoading />}
         </>
