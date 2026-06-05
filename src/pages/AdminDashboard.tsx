@@ -8,6 +8,7 @@ import { ExternalResourcesPanel } from "../components/ExternalResourcesPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { OfficeLocationMapPanel } from "../components/OfficeLocationMapPanel";
+import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
@@ -31,6 +32,37 @@ const roleLabels: Record<Role, string> = {
   lead: "Тимлид",
   admin: "Админ"
 };
+
+function assigneeOptionLabel(user: Pick<User, "name" | "role">) {
+  return `${user.name} · ${user.role === "lead" ? "тимлид" : "стажер"}`;
+}
+
+function getPlanAssignees(users: DraftUser[], category: Category, leadId?: string) {
+  return users.filter(
+    (user) =>
+      (user.role === "intern" || user.role === "lead") &&
+      (user.category === category || (user.role === "lead" && user.id === leadId))
+  );
+}
+
+function formatUserDate(value?: string) {
+  if (!value) return "неизвестно";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "неизвестно";
+  return date.toLocaleDateString("ru-RU");
+}
+
+function telegramMeta(user: User) {
+  const username = user.telegramUsername ? `@${user.telegramUsername}` : "username не указан";
+  return `TG ID: ${user.telegramUserId || "не указан"} · ${username}`;
+}
+
+function registrationMeta(user: User) {
+  if (user.registrationSocialSource) return `Источник: ${user.registrationSocialSource}`;
+  if (user.registrationUtmSource) return `Источник: ${user.registrationUtmSource}`;
+  if (user.registrationSource === "telegram_group") return "Источник: Telegram-группа";
+  return "Источник: web";
+}
 
 export function AdminDashboard() {
   const [users, setUsers] = useState<DraftUser[]>([]);
@@ -382,7 +414,10 @@ function UsersAccess({
               </div>
               <div>
                 <strong>{user.name}</strong>
-                <span>{user.email || "без email"}</span>
+                <span>Email: {user.email || "не указан"}</span>
+                <span>Создан: {formatUserDate(user.createdAt)}</span>
+                <span>{telegramMeta(user)}</span>
+                <span>{registrationMeta(user)}</span>
               </div>
             </button>
 
@@ -581,6 +616,7 @@ function PlansView({
       {viewingPlan ? (
         <AdminPlanDetailsModal
           plan={viewingPlan}
+          assignees={getPlanAssignees(users, viewingPlan.category, viewingPlan.leadId)}
           onClose={() => setViewingPlan(null)}
           onPlanChange={(updatedPlan) => {
             const planWithLead = { ...updatedPlan, lead: viewingPlan.lead };
@@ -594,7 +630,7 @@ function PlansView({
       {editingStep ? (
         <AdminStepEditModal
           step={editingStep.step}
-          interns={users.filter((user) => user.role === "intern" && user.category === editingStep.plan.category)}
+          assignees={getPlanAssignees(users, editingStep.plan.category, editingStep.plan.leadId)}
           onClose={() => setEditingStep(null)}
           onSave={async (patch) => {
             await updateStep(editingStep.plan, editingStep.step.id, patch);
@@ -627,7 +663,11 @@ function AdminPlanCreateForm({ leads, users, onCreated }: { leads: DraftUser[]; 
   const [busy, setBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
   const availableLeads = leads.filter((lead) => !lead.category || lead.category === form.category);
-  const availableInterns = users.filter((user) => user.role === "intern" && user.category === form.category);
+  const availableAssignees = users.filter(
+    (user) =>
+      (user.role === "intern" && user.category === form.category) ||
+      (user.role === "lead" && (user.category === form.category || user.id === form.leadId))
+  );
 
   function patchForm(patch: Partial<typeof form>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -778,7 +818,7 @@ function AdminPlanCreateForm({ leads, users, onCreated }: { leads: DraftUser[]; 
       {editingPreviewStep ? (
         <AdminStepEditModal
           step={editingPreviewStep}
-          interns={availableInterns}
+          assignees={availableAssignees}
           onClose={() => setEditingPreviewStep(null)}
           onSave={async (patch) => {
             patchPreviewStep(editingPreviewStep.clientId, patch);
@@ -837,12 +877,12 @@ function stepStatusLabel(status: Plan["steps"][number]["status"]) {
 
 function AdminStepEditModal({
   step,
-  interns,
+  assignees,
   onSave,
   onClose
 }: {
   step: Plan["steps"][number] | AdminPreviewStep;
-  interns: DraftUser[];
+  assignees: User[];
   onSave: (patch: Partial<Plan["steps"][number]>) => Promise<void>;
   onClose: () => void;
 }) {
@@ -902,8 +942,8 @@ function AdminStepEditModal({
               Исполнитель
               <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
                 <option value="">Не назначен</option>
-                {interns.map((intern) => (
-                  <option key={intern.id} value={intern.id}>{intern.name}</option>
+                {assignees.map((assignee) => (
+                  <option key={assignee.id} value={assignee.id}>{assigneeOptionLabel(assignee)}</option>
                 ))}
               </select>
             </label>
@@ -1064,11 +1104,13 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
 
 function AdminPlanDetailsModal({
   plan,
+  assignees,
   onClose,
   onPlanChange,
   onEditStep
 }: {
   plan: AdminPlan;
+  assignees: User[];
   onClose: () => void;
   onPlanChange: (plan: AdminPlan) => void;
   onEditStep: (step: Plan["steps"][number]) => void;
@@ -1135,6 +1177,7 @@ function AdminPlanDetailsModal({
               ) : null}
             </div>
             <aside className="planDetailAside">
+              <PlanBulkAssignPanel plan={plan} assignees={assignees} onAssigned={onPlanChange} />
               <AssignmentDraftPanel
                 plan={plan}
                 onApplied={(savedPlan) => {

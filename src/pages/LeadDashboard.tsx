@@ -1,5 +1,5 @@
 import { BarChart3, Bot, BrainCircuit, CalendarCheck, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, getToken, uploadFile, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type RiskCenter, type StepThread, type User } from "../api";
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
 import { AiAssistantDialog } from "../components/AiAssistantDialog";
@@ -8,6 +8,7 @@ import { ExternalResourcesPanel } from "../components/ExternalResourcesPanel";
 import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { OfficeLocationMapPanel } from "../components/OfficeLocationMapPanel";
+import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
@@ -24,6 +25,25 @@ type DigestSettings = {
   time: string;
   content: "productivity" | "reports" | "full";
 };
+
+function formatUserDate(value?: string) {
+  if (!value) return "неизвестно";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "неизвестно";
+  return date.toLocaleDateString("ru-RU");
+}
+
+function telegramMeta(user: User) {
+  const username = user.telegramUsername ? `@${user.telegramUsername}` : "username не указан";
+  return `TG ID: ${user.telegramUserId || "не указан"} · ${username}`;
+}
+
+function registrationMeta(user: User) {
+  if (user.registrationSocialSource) return `Источник: ${user.registrationSocialSource}`;
+  if (user.registrationUtmSource) return `Источник: ${user.registrationUtmSource}`;
+  if (user.registrationSource === "telegram_group") return "Источник: Telegram-группа";
+  return "Источник: web";
+}
 
 export function LeadDashboard({ user }: { user: User }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -130,6 +150,11 @@ export function LeadDashboard({ user }: { user: User }) {
       void api<AiSummary>("/api/ai-summary").then(setAiSummary);
     }
   }, [tab, aiSummary, loadedSections]);
+
+  const planAssignees = useMemo(() => {
+    const rows = [user, ...(dashboard?.interns || [])].filter((item) => item.category === user.category);
+    return rows.filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index);
+  }, [dashboard?.interns, user]);
 
   async function openIntern(id: string) {
     setSelectedIntern(await api<InternProfile>(`/api/interns/${id}`));
@@ -275,7 +300,7 @@ export function LeadDashboard({ user }: { user: User }) {
       {viewingPlan ? (
         <LeadPlanDetailsModal
           plan={viewingPlan}
-          interns={dashboard.interns}
+          assignees={planAssignees}
           onClose={() => setViewingPlan(null)}
           onPlanChange={(savedPlan) => {
             setDepartmentPlan((current) => (current?.id === savedPlan.id ? savedPlan : current));
@@ -392,13 +417,13 @@ function LeadPlanSummaryCard({ plan, onOpen }: { plan: Plan; onOpen: () => void 
 
 function LeadPlanDetailsModal({
   plan,
-  interns,
+  assignees,
   onClose,
   onPlanChange,
   onComplete
 }: {
   plan: Plan;
-  interns: Dashboard["interns"];
+  assignees: User[];
   onClose: () => void;
   onPlanChange: (plan: Plan) => void;
   onComplete: () => Promise<void>;
@@ -429,9 +454,10 @@ function LeadPlanDetailsModal({
 
           <div className="planDetailGrid">
             <div className="planDetailMain">
-              <PlanStepsEditor plan={plan} interns={interns} onChange={onPlanChange} />
+              <PlanStepsEditor plan={plan} assignees={assignees} onChange={onPlanChange} />
             </div>
             <aside className="planDetailAside">
+              <PlanBulkAssignPanel plan={plan} assignees={assignees} onAssigned={onPlanChange} />
               <AssignmentDraftPanel plan={plan} onApplied={onPlanChange} />
               <ExternalResourcesPanel linkedEntityType="plan" linkedEntityId={plan.id} planId={plan.id} category={plan.category} />
               <button className="ghostButton lightButton" type="button" onClick={async () => {
@@ -448,7 +474,11 @@ function LeadPlanDetailsModal({
   );
 }
 
-function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Dashboard["interns"]; onChange: (plan: Plan) => void }) {
+function assigneeOptionLabel(user: Pick<User, "name" | "role">) {
+  return `${user.name} · ${user.role === "lead" ? "тимлид" : "стажер"}`;
+}
+
+function PlanStepsEditor({ plan, assignees, onChange }: { plan: Plan; assignees: User[]; onChange: (plan: Plan) => void }) {
   const [draft, setDraft] = useState({ title: "", description: "", technicalSpec: "", technicalInstruction: "", deadline: plan.adjustedDeadline, assignedTo: "" });
   const [busy, setBusy] = useState(false);
   const [editingStep, setEditingStep] = useState<Plan["steps"][number] | null>(null);
@@ -505,9 +535,9 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
         <input type="date" value={draft.deadline} onChange={(event) => setDraft({ ...draft, deadline: event.target.value })} />
         <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
           <option value="">Без назначения</option>
-          {interns.map((intern) => (
-            <option key={intern.id} value={intern.id}>
-              {intern.name}
+          {assignees.map((assignee) => (
+            <option key={assignee.id} value={assignee.id}>
+              {assigneeOptionLabel(assignee)}
             </option>
           ))}
         </select>
@@ -519,7 +549,7 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
       {editingStep ? (
         <LeadStepEditModal
           step={editingStep}
-          interns={interns}
+          assignees={assignees}
           onClose={() => setEditingStep(null)}
           onSave={async (patch) => {
             await updateStep(editingStep.id, patch);
@@ -540,12 +570,12 @@ function stepStatusLabel(status: Plan["steps"][number]["status"]) {
 
 function LeadStepEditModal({
   step,
-  interns,
+  assignees,
   onSave,
   onClose
 }: {
   step: Plan["steps"][number];
-  interns: Dashboard["interns"];
+  assignees: User[];
   onSave: (patch: Partial<Plan["steps"][number]>) => Promise<void>;
   onClose: () => void;
 }) {
@@ -590,7 +620,7 @@ function LeadStepEditModal({
               Исполнитель
               <select value={draft.assignedTo} onChange={(event) => setDraft({ ...draft, assignedTo: event.target.value })}>
                 <option value="">Не назначен</option>
-                {interns.map((intern) => <option key={intern.id} value={intern.id}>{intern.name}</option>)}
+                {assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assigneeOptionLabel(assignee)}</option>)}
               </select>
             </label>
             <label>
@@ -850,6 +880,10 @@ function Overview({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenInt
                 <div>
                   <strong>{intern.name}</strong>
                   <span>{intern.categoryLabel}</span>
+                  <span>Email: {intern.email || "не указан"}</span>
+                  <span>Создан: {formatUserDate(intern.createdAt)}</span>
+                  <span>{telegramMeta(intern)}</span>
+                  <span>{registrationMeta(intern)}</span>
                 </div>
               </div>
               <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн сегодня" : "нет отметки"}</span>

@@ -87,6 +87,16 @@ button {
   color: #8fa4bd;
   font-size: 13px;
   margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.person > div {
+  min-width: 0;
+}
+
+.adminRow .person,
+.row .person {
+  align-items: flex-start;
 }
 
 .brandMark {

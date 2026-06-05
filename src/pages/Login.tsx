@@ -3,6 +3,16 @@ import { FormEvent, useState } from "react";
 import { api, setToken } from "../api";
 import type { Session } from "../session";
 
+function getRegistrationMeta() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    referrer: document.referrer || "",
+    utmSource: params.get("utm_source") || "",
+    utmMedium: params.get("utm_medium") || "",
+    utmCampaign: params.get("utm_campaign") || ""
+  };
+}
+
 export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
   const [mode, setMode] = useState<"login" | "register" | "verify">("login");
   const [identifier, setIdentifier] = useState("");
@@ -47,7 +57,8 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
           email: email || undefined,
           phone: phone || undefined,
           password,
-          name
+          name,
+          registrationMeta: getRegistrationMeta()
         })
       });
       setDevCode(result.devCode || "");
