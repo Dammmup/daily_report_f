@@ -8,7 +8,7 @@ import { categoryOptions } from "../constants";
 
 export function InternDashboard({ user, onUser }: { user: User; onUser: (user: User) => void }) {
   const [reports, setReports] = useState<Report[]>([]);
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [mood, setMood] = useState<"focused" | "normal" | "blocked">("focused");
   const [form, setForm] = useState({ yesterday: "", todayPlan: "", blockers: "", linkedStepIds: [] as string[] });
@@ -21,13 +21,13 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
   const planRef = useRef<HTMLElement>(null);
 
   async function refresh() {
-    const [reportList, currentPlan, attendanceData] = await Promise.all([
+    const [reportList, planList, attendanceData] = await Promise.all([
       api<Report[]>("/api/reports"),
-      api<Plan | null>("/api/my-plan"),
+      api<Plan[]>("/api/department-plans"),
       api<AttendanceSummary>("/api/attendance/summary")
     ]);
     setReports(reportList);
-    setPlan(currentPlan);
+    setPlans(planList.filter(isActivePlan));
     setAttendanceSummary(attendanceData);
   }
 
@@ -96,7 +96,7 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
     setStepMessage("");
     try {
       const saved = await api<Plan>(`/api/department-plan/steps/${stepId}/claim`, { method: "POST" });
-      setPlan(saved);
+      setPlans((current) => current.map((plan) => (plan.id === saved.id ? saved : plan)));
       setStepMessage("Шаг взят в работу");
     } catch (error) {
       setStepMessage(error instanceof Error ? error.message : "Не удалось взять шаг");
@@ -113,7 +113,7 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
         method: "PATCH",
         body: JSON.stringify({ status })
       });
-      setPlan(saved);
+      setPlans((current) => current.map((plan) => (plan.id === saved.id ? saved : plan)));
       setStepMessage("Статус шага обновлен");
     } catch (error) {
       setStepMessage(error instanceof Error ? error.message : "Не удалось обновить статус");
@@ -127,17 +127,27 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
     return scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
   }, [reports]);
 
+  const planStepRows = useMemo(() => plans.flatMap((plan) => (plan.steps || []).map((step) => ({ plan, step }))), [plans]);
   const assignedSteps = useMemo(
-    () => (plan?.steps || []).filter((step) => step.assignedTo === user.id && step.status !== "done" && step.status !== "canceled"),
-    [plan, user.id]
+    () => planStepRows.filter(({ step }) => step.assignedTo === user.id && step.status !== "done" && step.status !== "canceled"),
+    [planStepRows, user.id]
   );
+  const completedAssignedSteps = useMemo(
+    () => planStepRows.filter(({ step }) => step.assignedTo === user.id && step.status === "done"),
+    [planStepRows, user.id]
+  );
+  const reportLinkableSteps = useMemo(() => [...assignedSteps, ...completedAssignedSteps], [assignedSteps, completedAssignedSteps]);
   const availableSteps = useMemo(
-    () => (plan?.steps || []).filter((step) => !step.assignedTo && step.status !== "done" && step.status !== "canceled"),
-    [plan]
+    () => planStepRows.filter(({ step }) => !step.assignedTo && step.status !== "done" && step.status !== "canceled"),
+    [planStepRows]
   );
   const todayReport = useMemo(() => reports.find((report) => isToday(report.date) || isToday(report.createdAt)), [reports]);
-  const completedSteps = useMemo(() => (plan?.steps || []).filter((step) => step.status === "done").length, [plan]);
-  const planProgress = plan?.steps?.length ? Math.round((completedSteps / plan.steps.length) * 100) : 0;
+  const completedSteps = useMemo(() => planStepRows.filter(({ step }) => step.status === "done").length, [planStepRows]);
+  const planProgress = planStepRows.length ? Math.round((completedSteps / planStepRows.length) * 100) : 0;
+  const nearestDeadline = useMemo(
+    () => [...plans].sort((left, right) => left.adjustedDeadline.localeCompare(right.adjustedDeadline))[0]?.adjustedDeadline,
+    [plans]
+  );
 
   return (
     <section className="flow">
@@ -174,10 +184,10 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
             <strong>{todayReport ? "Дэйлик отправлен" : "Написать дэйлик"}</strong>
             <small>{todayReport?.aiReview ? `AI оценка ${todayReport.aiReview.productivityScore}%` : "Вчера, сегодня, блокеры"}</small>
           </button>
-          <button className={assignedSteps.length ? "internActionCard done" : "internActionCard"} onClick={() => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">
+          <button className={assignedSteps.length || completedAssignedSteps.length ? "internActionCard done" : "internActionCard"} onClick={() => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">
             <span className="actionIcon"><ListChecks size={22} /></span>
-            <strong>{assignedSteps.length ? "Шаг в работе" : "Взять шаг"}</strong>
-            <small>{assignedSteps[0]?.title || (availableSteps.length ? `${availableSteps.length} свободных шагов` : "Ждем план или назначение")}</small>
+            <strong>{assignedSteps.length ? "Шаг в работе" : completedAssignedSteps.length ? "Шаг завершен" : "Взять шаг"}</strong>
+            <small>{assignedSteps[0]?.step.title || completedAssignedSteps[0]?.step.title || (availableSteps.length ? `${availableSteps.length} свободных шагов` : "Ждем план или назначение")}</small>
           </button>
         </div>
 
@@ -192,7 +202,7 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
       <div className="metrics compactMetrics">
         <Metric icon={<CalendarCheck />} label="Отчетов" value={reports.length} />
         <Metric icon={<BarChart3 />} label="Средняя продуктивность" value={`${average}%`} />
-        <Metric icon={<Target />} label="Дедлайн" value={plan?.adjustedDeadline || "не задан"} />
+        <Metric icon={<Target />} label="Дедлайн" value={nearestDeadline || "не задан"} />
         <Metric
           icon={<MapPin />}
           label="Офис за неделю"
@@ -205,21 +215,21 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
         <div className="sectionTitleLine">
           <div>
             <span>План департамента</span>
-            <h2>{plan?.title || "План еще не создан"}</h2>
+            <h2>{plans.length ? "Активные планы" : "План еще не создан"}</h2>
           </div>
-          {plan?.steps?.length ? (
+          {planStepRows.length ? (
             <div className="planProgressBadge">
               <strong>{planProgress}%</strong>
-              <span>{completedSteps}/{plan.steps.length} готово</span>
+              <span>{completedSteps}/{planStepRows.length} готово</span>
             </div>
           ) : null}
         </div>
 
-        {plan ? (
+        {plans.length ? (
           <>
             <div className="deadline compactDeadline">
-              <span>Базовый дедлайн: {plan.baseDeadline}</span>
-              <strong>Текущий: {plan.adjustedDeadline}</strong>
+              <span>Активных планов: {plans.length}</span>
+              <strong>Ближайший дедлайн: {nearestDeadline || "не задан"}</strong>
             </div>
             <div className="progressBar wideProgress">
               <i style={{ width: `${planProgress}%` }} />
@@ -229,10 +239,30 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
               <div className="internTaskSection">
                 <h3><CheckCircle2 size={18} /> Ваши шаги</h3>
                 <div className="internTaskGrid">
-                  {assignedSteps.map((step) => (
+                  {assignedSteps.map(({ plan, step }) => (
                     <InternPlanStepCard
                       key={step.id}
                       step={step}
+                      planTitle={plan.title}
+                      mine
+                      busy={stepBusyId === step.id}
+                      onClaim={() => claimStep(step.id)}
+                      onStatus={(status) => updateMyStepStatus(step.id, status)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {completedAssignedSteps.length ? (
+              <div className="internTaskSection">
+                <h3><CheckCircle2 size={18} /> Завершенные шаги</h3>
+                <div className="internTaskGrid">
+                  {completedAssignedSteps.map(({ plan, step }) => (
+                    <InternPlanStepCard
+                      key={step.id}
+                      step={step}
+                      planTitle={plan.title}
                       mine
                       busy={stepBusyId === step.id}
                       onClaim={() => claimStep(step.id)}
@@ -247,10 +277,11 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
               <div className="internTaskSection">
                 <h3><ClipboardList size={18} /> Свободные шаги</h3>
                 <div className="internTaskGrid">
-                  {availableSteps.slice(0, 6).map((step) => (
+                  {availableSteps.slice(0, 8).map(({ plan, step }) => (
                     <InternPlanStepCard
                       key={step.id}
                       step={step}
+                      planTitle={plan.title}
                       busy={stepBusyId === step.id}
                       onClaim={() => claimStep(step.id)}
                       onStatus={(status) => updateMyStepStatus(step.id, status)}
@@ -260,14 +291,14 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
               </div>
             ) : null}
 
-            {!assignedSteps.length && !availableSteps.length ? (
+            {!assignedSteps.length && !completedAssignedSteps.length && !availableSteps.length ? (
               <p className="mutedText">Все шаги уже назначены или закрыты. Дэйлик можно отправить без привязки к шагу.</p>
             ) : null}
 
-            {plan.milestones.length ? (
+            {plans.length ? (
               <div className="timeline compactTimeline">
-                {plan.milestones.slice(0, 4).map((item, index) => (
-                  <span key={`${item}-${index}`}>{index + 1}. {item}</span>
+                {plans.slice(0, 4).map((plan) => (
+                  <span key={plan.id}>{plan.title} · {plan.adjustedDeadline}</span>
                 ))}
               </div>
             ) : null}
@@ -293,10 +324,10 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
           Технические неполадки или блокеры
           <textarea value={form.blockers} onChange={(event) => setForm({ ...form, blockers: event.target.value })} />
         </label>
-        {assignedSteps.length ? (
+        {reportLinkableSteps.length ? (
           <div className="linkedStepsBox">
             <strong>К каким шагам относится дэйлик</strong>
-            {assignedSteps.map((step) => (
+            {reportLinkableSteps.map(({ plan, step }) => (
               <label className="checkLine" key={step.id}>
                 <input
                   type="checkbox"
@@ -309,7 +340,8 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
                   }
                 />
                 <span>
-                  {step.title}
+                  {plan.title}: {step.title}
+                  {step.status === "done" ? " · готово" : ""}
                   {step.overdue ? " · просрочено" : ""}
                 </span>
               </label>
@@ -340,12 +372,14 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
 
 function InternPlanStepCard({
   step,
+  planTitle,
   mine,
   busy,
   onClaim,
   onStatus
 }: {
   step: Plan["steps"][number];
+  planTitle: string;
   mine?: boolean;
   busy: boolean;
   onClaim: () => void;
@@ -357,6 +391,7 @@ function InternPlanStepCard({
         <span className={`status ${step.status === "done" ? "ok" : ""}`}>{stepStatusText(step.status)}</span>
         <small>До {step.deadline}{step.overdue ? " · просрочено" : ""}</small>
       </div>
+      <span className="stepPlanLabel">{planTitle}</span>
       <strong>{step.title}</strong>
       <p>{step.description || "Описание появится после уточнения шага."}</p>
       {(step.technicalSpec || step.technicalInstruction) && (
@@ -391,6 +426,10 @@ function stepStatusText(status: Plan["steps"][number]["status"]) {
   if (status === "in_progress") return "в работе";
   if (status === "canceled") return "отменено";
   return "ожидает";
+}
+
+function isActivePlan(plan: Plan) {
+  return plan.status === "draft" || plan.status === "approved";
 }
 
 function isToday(value?: string) {
@@ -467,6 +506,10 @@ function InternStepThread({ stepId }: { stepId: string }) {
     setThread(await api<StepThread>(`/api/department-plan/steps/${stepId}/thread`));
   }
 
+  useEffect(() => {
+    load();
+  }, [stepId]);
+
   async function addComment(event: FormEvent) {
     event.preventDefault();
     await api(`/api/department-plan/steps/${stepId}/comments`, { method: "POST", body: JSON.stringify({ text: comment }) });
@@ -495,24 +538,28 @@ function InternStepThread({ stepId }: { stepId: string }) {
   return (
     <div className="threadBox">
       <button className="ghostButton" type="button" onClick={load}>
-        Обсуждение и артефакты
+        Материалы результата{thread?.artifacts.length ? ` · ${thread.artifacts.length}` : ""}
       </button>
       {thread ? (
         <>
           <div className="tagLine">
-            {thread.comments.slice(-3).map((item) => (
-              <span key={item.id}>{item.user?.name || "user"}: {item.text}</span>
-            ))}
             {thread.artifacts.map((item) => (
               <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
             ))}
+            {!thread.artifacts.length ? <span>Материалы еще не прикреплены</span> : null}
+          </div>
+          <div className="tagLine">
+            {thread.comments.slice(-3).map((item) => (
+              <span key={item.id}>{item.user?.name || "user"}: {item.text}</span>
+            ))}
+            {!thread.comments.length ? <span>Комментариев пока нет</span> : null}
           </div>
           <form className="inlineForm" onSubmit={addComment}>
             <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий по шагу" />
             <button className="secondaryButton">Добавить</button>
           </form>
-          <form className="inlineForm" onSubmit={addArtifact}>
-            <input value={artifact.title} onChange={(event) => setArtifact({ ...artifact, title: event.target.value })} placeholder="Название файла" />
+          <form className="inlineForm materialForm" onSubmit={addArtifact}>
+            <input value={artifact.title} onChange={(event) => setArtifact({ ...artifact, title: event.target.value })} placeholder="Название материала" />
             <input value={artifact.url} onChange={(event) => setArtifact({ ...artifact, url: event.target.value })} placeholder="https://..." />
             <label className="fileButton compact">
               {uploading ? "..." : "Файл"}

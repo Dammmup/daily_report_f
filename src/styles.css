@@ -596,6 +596,7 @@ textarea {
 }
 
 .timeline span,
+.tagLine a,
 .tagLine span,
 .status {
   display: inline-flex;
@@ -610,6 +611,7 @@ textarea {
   font-size: 12px;
   font-weight: 800;
   overflow-wrap: anywhere;
+  text-decoration: none;
 }
 
 .status.ok {
@@ -1958,6 +1960,18 @@ textarea {
   line-height: 1.45;
 }
 
+.stepPlanLabel {
+  width: max-content;
+  max-width: 100%;
+  border-radius: 8px;
+  background: #eaf7f2;
+  color: #10765a;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
 .internStepCard strong,
 .internStepCard p {
   overflow-wrap: anywhere;
@@ -2006,8 +2020,25 @@ textarea {
   padding: 18px;
 }
 
+.planSummaryList {
+  display: grid;
+  gap: 12px;
+}
+
 .planSummaryCard .planMetaGrid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.planHistoryButton {
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.planHistoryButton:hover {
+  border-color: rgba(16, 118, 90, 0.34);
+  background: #ffffff;
 }
 
 .modalOverlay {

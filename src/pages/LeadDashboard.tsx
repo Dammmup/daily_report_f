@@ -97,9 +97,8 @@ export function LeadDashboard({ user }: { user: User }) {
     setLoadedSections((current) => ({ ...current, office: true }));
   }
 
-  async function completeDepartmentPlan() {
-    if (!departmentPlan) return;
-    await api<Plan>(`/api/department-plan/${departmentPlan.id}/complete`, { method: "POST" });
+  async function completeDepartmentPlan(planId: string) {
+    await api<Plan>(`/api/department-plan/${planId}/complete`, { method: "POST" });
     await Promise.all([loadPlans(true), refreshDashboard()]);
   }
 
@@ -170,6 +169,10 @@ export function LeadDashboard({ user }: { user: User }) {
   if (selectedIntern) {
     return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
   }
+
+  const activeDepartmentPlans = planHistory.filter((plan) => plan.status === "draft" || plan.status === "approved");
+  const visibleActivePlans = activeDepartmentPlans.length ? activeDepartmentPlans : departmentPlan ? [departmentPlan] : [];
+  const archivedDepartmentPlans = planHistory.filter((plan) => plan.status !== "draft" && plan.status !== "approved");
 
   return (
     <section className="flow">
@@ -252,13 +255,17 @@ export function LeadDashboard({ user }: { user: User }) {
         <div className="panel planListPanel">
           <div className="sectionTitleLine">
             <div>
-              <span>Активный план</span>
+              <span>Активные планы</span>
               <h2>Утвержденная работа</h2>
             </div>
-            {departmentPlan ? <span className="status ok">#{departmentPlan.version || 1}</span> : null}
+            {visibleActivePlans.length ? <span className="status ok">{visibleActivePlans.length}</span> : null}
           </div>
-          {departmentPlan ? (
-            <LeadPlanSummaryCard plan={departmentPlan} onOpen={() => setViewingPlan(departmentPlan)} />
+          {visibleActivePlans.length ? (
+            <div className="planSummaryList">
+              {visibleActivePlans.map((plan) => (
+                <LeadPlanSummaryCard key={plan.id} plan={plan} onOpen={() => setViewingPlan(plan)} />
+              ))}
+            </div>
           ) : (
             <p>План еще не создан. После утверждения он появится у всех стажеров вашего департамента.</p>
           )}
@@ -271,15 +278,16 @@ export function LeadDashboard({ user }: { user: User }) {
           interns={dashboard.interns}
           onClose={() => setViewingPlan(null)}
           onPlanChange={(savedPlan) => {
-            setDepartmentPlan(savedPlan);
+            setDepartmentPlan((current) => (current?.id === savedPlan.id ? savedPlan : current));
+            setPlanHistory((current) => current.map((plan) => (plan.id === savedPlan.id ? savedPlan : plan)));
             setViewingPlan(savedPlan);
             void Promise.all([loadPlans(true), refreshDashboard()]);
           }}
-          onComplete={completeDepartmentPlan}
+          onComplete={() => completeDepartmentPlan(viewingPlan.id)}
         />
       ) : null}
 
-      <PlanHistoryPanel plans={planHistory} />
+      <PlanHistoryPanel plans={archivedDepartmentPlans} onOpen={setViewingPlan} />
 
       <button className="secondaryButton" type="button" onClick={downloadCsv}>
         Скачать CSV-отчет
@@ -320,7 +328,7 @@ function PlanProgressPanel({ plans }: { plans: Dashboard["stats"]["plans"] }) {
 
   return (
     <section className="panel">
-      <h2>Прогресс активного плана</h2>
+      <h2>Прогресс активных планов</h2>
       <div className="progressGrid">
         {plans.map((plan) => (
           <article className="progressCard" key={plan.id}>
@@ -449,7 +457,7 @@ function PlanStepsEditor({ plan, interns, onChange }: { plan: Plan; interns: Das
     event.preventDefault();
     setBusy(true);
     try {
-      const saved = await api<Plan>("/api/department-plan/steps", {
+      const saved = await api<Plan>(`/api/department-plan/${plan.id}/steps`, {
         method: "POST",
         body: JSON.stringify(draft)
       });
@@ -684,7 +692,7 @@ function OfficeLocationPanel({ location, onChange }: { location: OfficeLocation 
   );
 }
 
-function PlanHistoryPanel({ plans }: { plans: Plan[] }) {
+function PlanHistoryPanel({ plans, onOpen }: { plans: Plan[]; onOpen: (plan: Plan) => void }) {
   if (!plans.length) return null;
 
   return (
@@ -692,7 +700,7 @@ function PlanHistoryPanel({ plans }: { plans: Plan[] }) {
       <h2>История планов департамента</h2>
       <div className="stepList">
         {plans.map((plan) => (
-          <article className="stepItem" key={plan.id}>
+          <button className="stepItem planHistoryButton" type="button" key={plan.id} onClick={() => onOpen(plan)}>
             <div>
               <strong>
                 #{plan.version || 1} · {plan.title}
@@ -702,7 +710,7 @@ function PlanHistoryPanel({ plans }: { plans: Plan[] }) {
               </p>
               <small>Шагов: {plan.steps?.length || 0}</small>
             </div>
-          </article>
+          </button>
         ))}
       </div>
     </section>
