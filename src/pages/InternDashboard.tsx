@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
 import { categoryOptions } from "../constants";
+import { businessDateIso } from "../date";
 
 export function InternDashboard({ user, onUser }: { user: User; onUser: (user: User) => void }) {
   const [reports, setReports] = useState<Report[]>([]);
@@ -433,7 +434,7 @@ function isActivePlan(plan: Plan) {
 }
 
 function isToday(value?: string) {
-  return Boolean(value && value.slice(0, 10) === new Date().toISOString().slice(0, 10));
+  return Boolean(value && businessDateIso(new Date(value)) === businessDateIso());
 }
 
 function DepartmentChangePanel({ user, onUser }: { user: User; onUser: (user: User) => void }) {

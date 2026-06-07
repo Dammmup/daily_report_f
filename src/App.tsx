@@ -49,37 +49,32 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      const initData = getTelegramInitData();
-      if (!initData) {
-        setLoading(false);
-        return;
-      }
-
-      api<Session>("/api/telegram/mini-app-session", {
-        method: "POST",
-        body: JSON.stringify({ initData })
-      })
-        .then((telegramSession) => {
-          setToken(telegramSession.token);
-          setSession(telegramSession);
-        })
-        .catch(() => undefined)
-        .finally(() => setLoading(false));
-      return;
-    }
-
+    const token = getToken() || "";
     api<{ user: User }>("/api/me")
       .then(({ user }) => setSession({ token, user }))
-      .catch(() => clearToken())
+      .catch(() => {
+        clearToken();
+        const initData = getTelegramInitData();
+        if (!initData) return;
+
+        return api<Session>("/api/telegram/mini-app-session", {
+          method: "POST",
+          body: JSON.stringify({ initData })
+        })
+          .then((telegramSession) => {
+            setToken(telegramSession.token);
+            setSession(telegramSession);
+          })
+          .catch(() => undefined);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <ShellLoading />;
   if (!session) return <Login onLogin={setSession} />;
 
-  const logout = () => {
+  const logout = async () => {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     clearToken();
     setSession(null);
   };

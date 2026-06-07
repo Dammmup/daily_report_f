@@ -1,4 +1,5 @@
 import type { Report } from "../api";
+import { businessDateIso } from "../date";
 
 export function ReportList({ reports, onEdit }: { reports: Report[]; onEdit?: (report: Report) => void }) {
   return (
@@ -18,7 +19,7 @@ export function ReportList({ reports, onEdit }: { reports: Report[]; onEdit?: (r
                 <span key={action}>{action}</span>
               ))}
             </div>
-            {onEdit && report.date === new Date().toISOString().slice(0, 10) ? (
+            {onEdit && report.date === businessDateIso() ? (
               <button className="ghostButton" type="button" onClick={() => onEdit(report)}>
                 Редактировать
               </button>

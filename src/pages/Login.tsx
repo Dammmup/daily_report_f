@@ -128,7 +128,7 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
           <form className="form" onSubmit={requestCode}>
             <label>
               Email
-              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.kz" />
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.kz" required />
             </label>
             <label>
               Номер телефона
@@ -140,7 +140,15 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
             </label>
             <label>
               Пароль
-              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Придумайте пароль" required />
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Минимум 8 символов"
+                minLength={8}
+                maxLength={128}
+                required
+              />
             </label>
             <p className="mutedText">Все новые пользователи регистрируются как стажеры. Тимлидов назначает администратор.</p>
             {error && <div className="error">{error}</div>}

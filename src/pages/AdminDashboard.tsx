@@ -14,6 +14,7 @@ import { ReportList } from "../components/ReportList";
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { categoryOptions } from "../constants";
+import { businessDateIso } from "../date";
 
 type DraftUser = User & {
   draftRole: Role;
@@ -653,7 +654,7 @@ function PlansView({
 }
 
 function AdminPlanCreateForm({ leads, users, onCreated }: { leads: DraftUser[]; users: DraftUser[]; onCreated: (plan: AdminPlan) => void }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateIso();
   const [form, setForm] = useState({
     title: "",
     category: "erp-development" as Category,

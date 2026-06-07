@@ -43,6 +43,8 @@ export type User = {
   lastActiveAt: string;
 };
 
+export type MemberUser = Pick<User, "id" | "name" | "role" | "category" | "categoryLabel" | "avatarColor" | "avatarUrl">;
+
 export type AiReview = {
   productivityScore: number;
   summary: string;
@@ -419,8 +421,8 @@ export type RiskCenter = {
 };
 
 export type StepThread = {
-  comments: { id: string; text: string; user?: User; createdAt: string }[];
-  artifacts: { id: string; title: string; url: string; user?: User; createdAt: string }[];
+  comments: { id: string; text: string; user?: MemberUser; createdAt: string }[];
+  artifacts: { id: string; title: string; url: string; user?: MemberUser; createdAt: string }[];
 };
 
 export type AuditLog = {
@@ -475,7 +477,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
+  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, credentials: "include" });
   const text = await response.text();
   const isJson = response.headers.get("content-type")?.includes("application/json");
   const data = text && isJson ? JSON.parse(text) : null;
