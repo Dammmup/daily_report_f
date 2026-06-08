@@ -110,22 +110,22 @@ export function App() {
           ))}
         </nav>
         <div className="sideTools">
-          <label className="topSearch">
+          <label className="topSearch" title="Глобальный поиск">
             <Search size={16} />
             <input aria-label="Поиск по платформе" placeholder="Поиск..." />
             <kbd>⌘K</kbd>
           </label>
-          <button className="iconButton" type="button" aria-label="AI ассистент">
+          <button className="iconButton" type="button" aria-label="AI ассистент" title="AI ассистент" onClick={() => window.dispatchEvent(new CustomEvent("dailyreport:openAiDialog"))}>
             <Bot size={17} />
           </button>
-          <button className="iconButton" type="button" aria-label="Уведомления">
+          <button className="iconButton" type="button" aria-label="Уведомления" title="Уведомления">
             <Bell size={17} />
           </button>
-          <button className="topUserPill" type="button" onClick={() => setProfileOpen((value) => !value)}>
+          <button className="topUserPill" type="button" onClick={() => setProfileOpen((value) => !value)} title="Мой профиль">
             {session.user.avatarUrl ? <img className="avatar small" src={session.user.avatarUrl} alt={session.user.name} /> : <span className="avatar small" style={{ background: session.user.avatarColor }}>{session.user.name.slice(0, 1)}</span>}
             <span>{session.user.name.split(' ')[0]}</span>
           </button>
-          <button className="iconButton" type="button" onClick={logout} aria-label="Выйти">
+          <button className="iconButton" type="button" onClick={logout} aria-label="Выйти" title="Выйти">
             <LogOut size={17} />
           </button>
         </div>

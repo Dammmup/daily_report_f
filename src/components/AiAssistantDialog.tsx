@@ -23,6 +23,12 @@ export function AiAssistantDialog({ plans = [] }: { plans?: AssistantPlan[] }) {
 
   useEffect(() => {
     if (!planId && plans[0]?.id) setPlanId(plans[0].id);
+
+    function onOpenDialog() {
+      setOpen(true);
+    }
+    window.addEventListener("dailyreport:openAiDialog", onOpenDialog);
+    return () => window.removeEventListener("dailyreport:openAiDialog", onOpenDialog);
   }, [planId, plans]);
 
   async function ask(event: FormEvent) {
