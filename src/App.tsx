@@ -88,18 +88,17 @@ export function App() {
       setProfileOpen(true);
     }
     window.dispatchEvent(new CustomEvent("dailyreport:navigate", { detail: key }));
-    scrollToTop();
+
   };
 
   return (
     <main className="app">
       {oauthToast && <OAuthToast message={oauthToast.message} type={oauthToast.type} onClose={() => setOauthToast(null)} />}
-      <aside className="sidebar">
+      <header className="topNavigation">
         <div className="brand">
           <div className="brandMark">DR</div>
           <div>
-            <strong>DailyReport ERP</strong>
-            <span>AI project manager</span>
+            <strong>DailyReport</strong>
           </div>
         </div>
         <nav className="sideNav" aria-label="Основные разделы">
@@ -111,44 +110,28 @@ export function App() {
           ))}
         </nav>
         <div className="sideTools">
-          {session.user.role !== "admin" && <TelegramHelp user={session.user} compact />}
-          <button className="ghostButton" onClick={() => setProfileOpen((value) => !value)}>
-            <Settings size={18} />
-            Профиль и пароль
+          <label className="topSearch">
+            <Search size={16} />
+            <input aria-label="Поиск по платформе" placeholder="Поиск..." />
+            <kbd>⌘K</kbd>
+          </label>
+          <button className="iconButton" type="button" aria-label="AI ассистент">
+            <Bot size={17} />
           </button>
-        </div>
-        {profileOpen && <ProfileSettings user={session.user} onUser={(user) => setSession({ ...session, user })} onClose={() => setProfileOpen(false)} />}
-        <div className="sideAccount">
-          {session.user.avatarUrl ? <img className="avatar" src={session.user.avatarUrl} alt={session.user.name} /> : <div className="avatar" style={{ background: session.user.avatarColor }}>{session.user.name.slice(0, 1)}</div>}
-          <div>
-            <strong>{session.user.name}</strong>
-            <span>{session.user.categoryLabel || roleLabels[session.user.role]}</span>
-          </div>
+          <button className="iconButton" type="button" aria-label="Уведомления">
+            <Bell size={17} />
+          </button>
+          <button className="topUserPill" type="button" onClick={() => setProfileOpen((value) => !value)}>
+            {session.user.avatarUrl ? <img className="avatar small" src={session.user.avatarUrl} alt={session.user.name} /> : <span className="avatar small" style={{ background: session.user.avatarColor }}>{session.user.name.slice(0, 1)}</span>}
+            <span>{session.user.name.split(' ')[0]}</span>
+          </button>
           <button className="iconButton" type="button" onClick={logout} aria-label="Выйти">
             <LogOut size={17} />
           </button>
         </div>
-      </aside>
+        {profileOpen && <ProfileSettings user={session.user} onUser={(user) => setSession({ ...session, user })} onClose={() => setProfileOpen(false)} />}
+      </header>
       <section className="workspace">
-        <header className="topCommandBar">
-          <label className="topSearch">
-            <Search size={16} />
-            <input aria-label="Поиск по платформе" placeholder="Поиск стажера, плана, шага..." />
-            <kbd>⌘K</kbd>
-          </label>
-          <div className="topBarActions">
-            <button className="iconButton" type="button" aria-label="AI ассистент">
-              <Bot size={17} />
-            </button>
-            <button className="iconButton" type="button" aria-label="Уведомления">
-              <Bell size={17} />
-            </button>
-            <button className="topUserPill" type="button" onClick={() => setProfileOpen((value) => !value)}>
-              {session.user.avatarUrl ? <img className="avatar small" src={session.user.avatarUrl} alt={session.user.name} /> : <span className="avatar small" style={{ background: session.user.avatarColor }}>{session.user.name.slice(0, 1)}</span>}
-              <span>{session.user.name}</span>
-            </button>
-          </div>
-        </header>
         <div className="workspaceFrame">
           {session.user.role === "admin" ? (
             <AdminDashboard user={session.user} />
@@ -223,9 +206,47 @@ function MobileBottomNav({ role, onProfile, onTop, onLogout }: { role: User["rol
   );
 }
 
+function PasswordStrengthIndicator({ password }: { password: string }) {
+  const hasMinLength = password.length >= 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  
+  const strength = [hasMinLength, hasUppercase, hasLowercase, hasNumber].filter(Boolean).length;
+  let strengthLabel = "Слабый пароль.";
+  let strengthColor = "#ef4444";
+  if (strength === 4) {
+    strengthLabel = "Отличный пароль.";
+    strengthColor = "#10b981";
+  } else if (strength >= 2) {
+    strengthLabel = "Нормальный пароль.";
+    strengthColor = "#f59e0b";
+  }
+
+  if (!password) return null;
+
+  return (
+    <div className="passwordStrength">
+      <div className="strengthBars">
+        <div className="bar" style={{ background: strength >= 1 ? strengthColor : "#e2e8f0" }}></div>
+        <div className="bar" style={{ background: strength >= 2 ? strengthColor : "#e2e8f0" }}></div>
+        <div className="bar" style={{ background: strength >= 3 ? strengthColor : "#e2e8f0" }}></div>
+        <div className="bar" style={{ background: strength >= 4 ? strengthColor : "#e2e8f0" }}></div>
+      </div>
+      <p style={{ color: strengthColor, fontWeight: 600, fontSize: "12px", margin: "6px 0" }}>{strengthLabel} Должен содержать:</p>
+      <div className="strengthChecks">
+        <span className={hasMinLength ? "passed" : ""}>✓ Минимум 8 символов</span>
+        <span className={hasNumber ? "passed" : ""}>✓ Цифру (0-9)</span>
+        <span className={hasUppercase ? "passed" : ""}>✓ Заглавную букву (A-Z)</span>
+        <span className={hasLowercase ? "passed" : ""}>✓ Строчную букву (a-z)</span>
+      </div>
+    </div>
+  );
+}
+
 function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user: User) => void; onClose: () => void }) {
   const [form, setForm] = useState({ name: user.name, avatarColor: user.avatarColor, avatarUrl: user.avatarUrl || "", bio: user.bio || "" });
-  const [password, setPassword] = useState({ currentPassword: "", newPassword: "" });
+  const [password, setPassword] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -238,8 +259,12 @@ function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user:
 
   async function changePassword(event: FormEvent) {
     event.preventDefault();
-    await api("/api/me/password", { method: "PATCH", body: JSON.stringify(password) });
-    setPassword({ currentPassword: "", newPassword: "" });
+    if (password.newPassword !== password.confirmPassword) {
+      setMessage("Новые пароли не совпадают");
+      return;
+    }
+    await api("/api/me/password", { method: "PATCH", body: JSON.stringify({ currentPassword: password.currentPassword, newPassword: password.newPassword }) });
+    setPassword({ currentPassword: "", newPassword: "", confirmPassword: "" });
     setMessage("Пароль изменен");
   }
 
@@ -282,42 +307,55 @@ function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user:
         <form className="settingsFormCard" onSubmit={saveProfile}>
           <div className="settingsFormGrid">
             <label>
-              Имя
-              <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Имя" />
+              Имя <span className="required">*</span>
+              <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Имя" required />
             </label>
             <label>
               Цвет аватарки
               <input value={form.avatarColor} onChange={(event) => setForm({ ...form, avatarColor: event.target.value })} placeholder="#10765a" />
             </label>
+            <label>
+              Загрузить аватар
+              <div className="fileButton profileUploadButton" onClick={() => document.getElementById("avatarUpload")?.click()}>
+                <ImagePlus size={16} />
+                {uploading ? "Загружаю..." : "Выбрать файл..."}
+                <input id="avatarUpload" type="file" style={{ display: "none" }} accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadAvatar(event.target.files?.[0])} disabled={uploading} />
+              </div>
+            </label>
+            <label>
+              Ссылка на аватар
+              <input value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://..." />
+            </label>
           </div>
-          <label className="fileButton profileUploadButton">
-            <ImagePlus size={16} />
-            {uploading ? "Загружаю..." : "Загрузить аватар"}
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadAvatar(event.target.files?.[0])} disabled={uploading} />
-          </label>
-          <label>
-            Ссылка на аватар
-            <input value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://..." />
-          </label>
-          <label>
+          <label style={{ display: "block", marginTop: "16px" }}>
             О себе
             <textarea value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} placeholder="Коротко о роли, навыках или фокусе" />
           </label>
-          <button className="secondaryButton">Сохранить профиль</button>
+          <div style={{ marginTop: "16px" }}>
+            <button className="secondaryButton">Сохранить изменения</button>
+          </div>
         </form>
         <form className="settingsFormCard" onSubmit={changePassword}>
           <h3>Смена пароля</h3>
           <div className="settingsFormGrid">
             <label>
-              Текущий пароль
-              <input type="password" value={password.currentPassword} onChange={(event) => setPassword({ ...password, currentPassword: event.target.value })} placeholder="Текущий пароль" />
+              Текущий пароль <span className="required">*</span>
+              <input type="password" value={password.currentPassword} onChange={(event) => setPassword({ ...password, currentPassword: event.target.value })} placeholder="••••••••" required />
+            </label>
+            <div></div>
+            <label>
+              Новый пароль <span className="required">*</span>
+              <input type="password" value={password.newPassword} onChange={(event) => setPassword({ ...password, newPassword: event.target.value })} placeholder="••••••••" required />
             </label>
             <label>
-              Новый пароль
-              <input type="password" value={password.newPassword} onChange={(event) => setPassword({ ...password, newPassword: event.target.value })} placeholder="Новый пароль" />
+              Подтвердите пароль <span className="required">*</span>
+              <input type="password" value={password.confirmPassword} onChange={(event) => setPassword({ ...password, confirmPassword: event.target.value })} placeholder="••••••••" required />
             </label>
           </div>
-          <button className="secondaryButton">Сменить пароль</button>
+          <PasswordStrengthIndicator password={password.newPassword} />
+          <div style={{ marginTop: "16px" }}>
+            <button className="secondaryButton">Сменить пароль</button>
+          </div>
         </form>
         {message && <small className="successText">{message}</small>}
       </div>

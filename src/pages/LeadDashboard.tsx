@@ -15,6 +15,7 @@ import { RoleHomeDashboard, type HomeAlert } from "../components/RoleHomeDashboa
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { TelegramHelp } from "../components/TelegramHelp";
+import { DropdownMenu } from "../components/DropdownMenu";
 
 type PlanForm = {
   title: string;
@@ -144,6 +145,7 @@ export function LeadDashboard({ user }: { user: User }) {
   useEffect(() => {
     function handleNavigation(event: Event) {
       const key = (event as CustomEvent<string>).detail;
+      setSelectedIntern(null);
       if (key === "dashboard" || key === "interns") setTab("overview");
       if (key === "overview" || key === "plans" || key === "automation" || key === "ai") setTab(key);
     }
@@ -247,31 +249,33 @@ export function LeadDashboard({ user }: { user: User }) {
 
   return (
     <section className="flow">
-      <RoleHomeDashboard
-        user={user}
-        roleLabel={user.categoryLabel || "Тимлид"}
-        title={`Добро пожаловать, ${user.name.split(" ")[0] || user.name}`}
-        subtitle="Рабочий стол тимлида показывает, кто активен, какие шаги горят, кого AI советует на план и что нужно сделать сегодня."
-        score={dashboard.stats.averageScore}
-        scoreLabel="Средний балл команды"
-        focusTitle="Планы и загрузка"
-        focusSubtitle="Активные планы, прогресс и назначенные шаги"
-        metrics={[
-          { icon: <Users />, label: "Стажеров", value: dashboard.stats.internsTotal, caption: user.categoryLabel || "ваш департамент", tone: "neutral" },
-          { icon: <CalendarCheck />, label: "Отметились сегодня", value: dashboard.stats.checkedInToday, caption: "видим активность", tone: dashboard.stats.checkedInToday ? "good" : "warn" },
-          { icon: <Sparkles />, label: "AI проверок", value: dashboard.stats.aiReviewedReports, caption: "дэйлики и профили", tone: "good" },
-          { icon: <BarChart3 />, label: "Средний балл", value: `${dashboard.stats.averageScore}%`, caption: "по отчетам", tone: dashboard.stats.averageScore >= 70 ? "good" : "warn" },
-          { icon: <ClipboardList />, label: "Активных планов", value: dashboard.stats.plans.length, caption: "можно открыть ниже", tone: dashboard.stats.plans.length ? "neutral" : "warn" }
-        ]}
-        actions={[
-          { label: "create-plan", title: "Создать план", helper: "AI разобьет на шаги", icon: <Save size={22} />, tone: "green", onClick: () => setTab("plans") },
-          { label: "ai-fit", title: "AI подбор", helper: "Кто подходит под задачу", icon: <Bot size={22} />, tone: "dark", onClick: () => setTab("overview") },
-          { label: "telegram", title: "Telegram", helper: "Сводки и расписание", icon: <CalendarCheck size={22} />, tone: "blue", onClick: () => setTab("automation") }
-        ]}
-        plans={leadHomePlans}
-        people={leadHomePeople}
-        alerts={leadHomeAlerts}
-      />
+      {tab === 'overview' && (
+        <RoleHomeDashboard
+          user={user}
+          roleLabel={user.categoryLabel || "Тимлид"}
+          title={`Добро пожаловать, ${user.name.split(" ")[0] || user.name}`}
+          subtitle="Рабочий стол тимлида показывает, кто активен, какие шаги горят, кого AI советует на план и что нужно сделать сегодня."
+          score={dashboard.stats.averageScore}
+          scoreLabel="Средний балл команды"
+          focusTitle="Планы и загрузка"
+          focusSubtitle="Активные планы, прогресс и назначенные шаги"
+          metrics={[
+            { icon: <Users />, label: "Стажеров", value: dashboard.stats.internsTotal, caption: user.categoryLabel || "ваш департамент", tone: "neutral" },
+            { icon: <CalendarCheck />, label: "Отметились сегодня", value: dashboard.stats.checkedInToday, caption: "видим активность", tone: dashboard.stats.checkedInToday ? "good" : "warn" },
+            { icon: <Sparkles />, label: "AI проверок", value: dashboard.stats.aiReviewedReports, caption: "дэйлики и профили", tone: "good" },
+            { icon: <BarChart3 />, label: "Средний балл", value: `${dashboard.stats.averageScore}%`, caption: "по отчетам", tone: dashboard.stats.averageScore >= 70 ? "good" : "warn" },
+            { icon: <ClipboardList />, label: "Активных планов", value: dashboard.stats.plans.length, caption: "можно открыть ниже", tone: dashboard.stats.plans.length ? "neutral" : "warn" }
+          ]}
+          actions={[
+            { label: "create-plan", title: "Создать план", helper: "AI разобьет на шаги", icon: <Save size={22} />, tone: "green", onClick: () => setTab("plans") },
+            { label: "ai-fit", title: "AI подбор", helper: "Кто подходит под задачу", icon: <Bot size={22} />, tone: "dark", onClick: () => setTab("overview") },
+            { label: "telegram", title: "Telegram", helper: "Сводки и расписание", icon: <CalendarCheck size={22} />, tone: "blue", onClick: () => setTab("automation") }
+          ]}
+          plans={leadHomePlans}
+          people={leadHomePeople}
+          alerts={leadHomeAlerts}
+        />
+      )}
       <AiAssistantDialog />
       <TelegramHelp user={user} />
 
@@ -914,6 +918,15 @@ function TelegramDigestPanel() {
 }
 
 function Overview({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+
+  // Basic kanban grouping mock
+  const columns = [
+    { id: "new", title: "Новые", items: dashboard.interns.filter(i => i.reportsCount === 0) },
+    { id: "active", title: "В работе", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore >= 50) },
+    { id: "risk", title: "Зона риска", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore < 50) },
+  ];
+
   return (
     <>
       <div className="metrics">
@@ -937,30 +950,91 @@ function Overview({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenInt
       </section>
 
       <section className="panel tablePanel">
-        <h2>Список стажеров</h2>
-        <div className="table">
-          {dashboard.interns.map((intern) => (
-            <button className="row clickableRow" key={intern.id} onClick={() => onOpenIntern(intern.id)}>
-              <div className="person">
-                <div className="avatar small" style={{ background: intern.avatarColor }}>
-                  {intern.name.slice(0, 1)}
-                </div>
-                <div>
-                  <strong>{intern.name}</strong>
-                  <span>{intern.categoryLabel}</span>
-                  <span>Email: {intern.email || "не указан"}</span>
-                  <span>Создан: {formatUserDate(intern.createdAt)}</span>
-                  <span>{telegramMeta(intern)}</span>
-                  <span>{registrationMeta(intern)}</span>
+        <div className="sectionTitleLine">
+          <div>
+            <h2>Стажеры департамента <span className="badgeCounter">{dashboard.interns.length}</span></h2>
+          </div>
+          <div className="tabs inlineTabs" style={{ margin: 0, border: "none", padding: 0 }}>
+            <button className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")}>Список</button>
+            <button className={viewMode === "kanban" ? "active" : ""} onClick={() => setViewMode("kanban")}>Канбан</button>
+          </div>
+        </div>
+
+        {viewMode === "list" ? (
+          <div className="table">
+            {dashboard.interns.map((intern) => (
+              <div className="row" key={intern.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button className="row clickableRow" style={{ flex: 1, border: "none", background: "transparent", padding: 0, margin: 0 }} onClick={() => onOpenIntern(intern.id)}>
+                  <div className="person">
+                    <div className="avatar small" style={{ background: intern.avatarColor }}>
+                      {intern.name.slice(0, 1)}
+                    </div>
+                    <div>
+                      <strong>{intern.name}</strong>
+                      <span>{intern.categoryLabel}</span>
+                      <span>Email: {intern.email || "не указан"}</span>
+                      <span>Создан: {formatUserDate(intern.createdAt)}</span>
+                    </div>
+                  </div>
+                  <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн сегодня" : "нет отметки"}</span>
+                  <span>{intern.reportsCount} отчетов</span>
+                  <strong>{intern.averageScore}%</strong>
+                </button>
+                <div style={{ marginLeft: "16px" }}>
+                  <DropdownMenu items={[
+                    { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
+                    { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) },
+                    { label: "Переместить", onClick: () => alert("Смена департамента") },
+                    { label: "Удалить", onClick: () => alert("Удаление"), danger: true }
+                  ]} />
                 </div>
               </div>
-              <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн сегодня" : "нет отметки"}</span>
-              <span>{intern.reportsCount} отчетов</span>
-              <strong>{intern.averageScore}%</strong>
-            </button>
-          ))}
-          {!dashboard.interns.length && <p>В вашем департаменте пока нет стажеров.</p>}
-        </div>
+            ))}
+            {!dashboard.interns.length && <p>В вашем департаменте пока нет стажеров.</p>}
+          </div>
+        ) : (
+          <div className="kanbanBoard">
+            {columns.map(col => (
+              <div className="kanbanColumn" key={col.id}>
+                <div className="kanbanColumnHeader">
+                  <strong>{col.title} <span className="badgeCounter primary">{col.items.length}</span></strong>
+                </div>
+                <div className="kanbanColumnList">
+                  {col.items.map(intern => (
+                    <div className="kanbanCard" key={intern.id} onClick={() => onOpenIntern(intern.id)}>
+                      <div className="kanbanCardHeader">
+                        <div className="tagLine">
+                          <span>{intern.categoryLabel || "Без роли"}</span>
+                        </div>
+                        <DropdownMenu items={[
+                          { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
+                          { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) }
+                        ]} />
+                      </div>
+                      <div className="person" style={{ margin: "12px 0" }}>
+                        <div className="avatar small" style={{ background: intern.avatarColor }}>
+                          {intern.name.slice(0, 1)}
+                        </div>
+                        <div>
+                          <strong>{intern.name}</strong>
+                          <span style={{ fontSize: "12px" }}>Продуктивность: {intern.averageScore}%</span>
+                        </div>
+                      </div>
+                      <div className="progressBar">
+                        <i style={{ width: `${intern.averageScore}%` }} />
+                      </div>
+                      <div className="kanbanCardFooter">
+                        <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн" : "офлайн"}</span>
+                        <small>{intern.reportsCount} отчетов</small>
+                      </div>
+                    </div>
+                  ))}
+                  {!col.items.length && <div className="mutedText" style={{ fontSize: "12px", textAlign: "center", padding: "16px" }}>Нет стажеров</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <ReportList reports={dashboard.reports} />
@@ -1152,3 +1226,4 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
     </section>
   );
 }
+

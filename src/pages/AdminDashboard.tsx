@@ -16,6 +16,7 @@ import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { categoryOptions } from "../constants";
 import { businessDateIso } from "../date";
+import { DropdownMenu } from "../components/DropdownMenu";
 
 type DraftUser = User & {
   draftRole: Role;
@@ -139,6 +140,7 @@ export function AdminDashboard({ user }: { user: User }) {
   useEffect(() => {
     function handleNavigation(event: Event) {
       const key = (event as CustomEvent<string>).detail;
+      setSelectedIntern(null);
       if (key === "dashboard") setTab("overview");
       if (key === "users" || key === "overview" || key === "ai" || key === "plans" || key === "office" || key === "audit") setTab(key);
     }
@@ -199,44 +201,44 @@ export function AdminDashboard({ user }: { user: User }) {
 
   const sourcePlans: HomePlan[] = plans.length
     ? plans.map((plan) => {
-        const total = plan.steps?.length || 0;
-        const done = plan.steps?.filter((step) => step.status === "done").length || 0;
-        const inProgress = plan.steps?.filter((step) => step.status === "in_progress").length || 0;
-        const progress = total ? Math.round((done / total) * 100) : 0;
-        return {
-          id: plan.id,
-          title: plan.title,
-          category: categoryOptions.find((category) => category.value === plan.category)?.label || plan.category,
-          lead: plan.lead?.name,
-          deadline: plan.adjustedDeadline,
-          progress,
-          done,
-          total,
-          status: plan.status === "approved" ? "утвержден" : plan.status,
-          onOpen: () => setTab("plans"),
-          tasks: [
-            { id: `${plan.id}-todo`, title: `Ожидают: ${Math.max(total - done - inProgress, 0)}`, meta: "проверить назначение", status: "todo" as const },
-            { id: `${plan.id}-progress`, title: `В работе: ${inProgress}`, meta: "активные задачи", status: "in_progress" as const },
-            { id: `${plan.id}-done`, title: `Готово: ${done}`, meta: `${progress}% закрыто`, status: "done" as const }
-          ]
-        };
-      })
-    : dashboard.stats.plans.map((plan) => ({
+      const total = plan.steps?.length || 0;
+      const done = plan.steps?.filter((step) => step.status === "done").length || 0;
+      const inProgress = plan.steps?.filter((step) => step.status === "in_progress").length || 0;
+      const progress = total ? Math.round((done / total) * 100) : 0;
+      return {
         id: plan.id,
         title: plan.title,
-        category: plan.categoryLabel,
+        category: categoryOptions.find((category) => category.value === plan.category)?.label || plan.category,
+        lead: plan.lead?.name,
         deadline: plan.adjustedDeadline,
-        progress: plan.progress.completionPercent,
-        done: plan.progress.done,
-        total: plan.progress.total,
-        status: plan.progress.overdue ? "есть риск" : "активен",
+        progress,
+        done,
+        total,
+        status: plan.status === "approved" ? "утвержден" : plan.status,
         onOpen: () => setTab("plans"),
         tasks: [
-          { id: `${plan.id}-todo`, title: `Ожидают: ${plan.progress.todo}`, meta: plan.progress.unassigned ? `без исполнителя ${plan.progress.unassigned}` : "назначены", status: "todo" as const },
-          { id: `${plan.id}-progress`, title: `В работе: ${plan.progress.inProgress}`, meta: plan.progress.overdue ? `просрочено ${plan.progress.overdue}` : "по графику", status: "in_progress" as const },
-          { id: `${plan.id}-done`, title: `Готово: ${plan.progress.done}`, meta: `${plan.progress.completionPercent}% закрыто`, status: "done" as const }
+          { id: `${plan.id}-todo`, title: `Ожидают: ${Math.max(total - done - inProgress, 0)}`, meta: "проверить назначение", status: "todo" as const },
+          { id: `${plan.id}-progress`, title: `В работе: ${inProgress}`, meta: "активные задачи", status: "in_progress" as const },
+          { id: `${plan.id}-done`, title: `Готово: ${done}`, meta: `${progress}% закрыто`, status: "done" as const }
         ]
-      }));
+      };
+    })
+    : dashboard.stats.plans.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      category: plan.categoryLabel,
+      deadline: plan.adjustedDeadline,
+      progress: plan.progress.completionPercent,
+      done: plan.progress.done,
+      total: plan.progress.total,
+      status: plan.progress.overdue ? "есть риск" : "активен",
+      onOpen: () => setTab("plans"),
+      tasks: [
+        { id: `${plan.id}-todo`, title: `Ожидают: ${plan.progress.todo}`, meta: plan.progress.unassigned ? `без исполнителя ${plan.progress.unassigned}` : "назначены", status: "todo" as const },
+        { id: `${plan.id}-progress`, title: `В работе: ${plan.progress.inProgress}`, meta: plan.progress.overdue ? `просрочено ${plan.progress.overdue}` : "по графику", status: "in_progress" as const },
+        { id: `${plan.id}-done`, title: `Готово: ${plan.progress.done}`, meta: `${plan.progress.completionPercent}% закрыто`, status: "done" as const }
+      ]
+    }));
   const adminHomeAlerts: HomeAlert[] = [
     ...(decisionCenter.attention.length ? [{ id: "attention", title: "Есть зона внимания", text: `${decisionCenter.attention.length} стажеров требуют проверки AI-сводки.`, tone: "warn" as const, actionLabel: "AI-сводка", onAction: () => setTab("ai") }] : []),
     ...(decisionCenter.missingReports.length ? [{ id: "missing", title: "Дэйлики не закрыты", text: `${decisionCenter.missingReports.length} пользователей без отчета сегодня.`, tone: "danger" as const }] : []),
@@ -246,61 +248,64 @@ export function AdminDashboard({ user }: { user: User }) {
 
   return (
     <section className="flow">
-      <RoleHomeDashboard
-        user={user}
-        roleLabel="Администратор"
-        title={`Контроль платформы, ${user.name.split(" ")[0] || user.name}`}
-        subtitle="Единая панель для пользователей, планов, офисной точки, Telegram-рассылок и AI-сводок по всем департаментам."
-        score={dashboard.stats.averageScore}
-        scoreLabel="AI здоровье платформы"
-        focusTitle="Платформа и департаменты"
-        focusSubtitle="Активные планы, команды и системные сигналы"
-        metrics={[
-          { icon: <Users />, label: users.length ? "Пользователей" : "Стажеров", value: users.length || dashboard.stats.internsTotal, caption: users.length ? "загружено из базы" : "по дашборду", tone: "neutral" },
-          { icon: <UserCog />, label: "Тимлидов", value: users.length ? users.filter((user) => user.role === "lead").length : "откр. вкладку", caption: "доступы через админку", tone: "neutral" },
-          { icon: <Sparkles />, label: "AI отчетов", value: dashboard.stats.aiReviewedReports, caption: "обработано моделью", tone: "good" },
-          { icon: <ClipboardList />, label: "Планов", value: sourcePlans.length, caption: "активные и загруженные", tone: sourcePlans.length ? "good" : "warn" },
-          { icon: <History />, label: "Действий", value: auditLog.length || "по вкладке", caption: "журнал аудита", tone: "neutral" }
-        ]}
-        actions={[
-          { label: "broadcast", title: "Telegram рассылка", helper: "на случай сбоя cron", icon: <Megaphone size={22} />, tone: "green", onClick: runTelegramRecoveryBroadcast },
-          { label: "create-plan", title: "Создать план", helper: "департамент и тимлид", icon: <Save size={22} />, tone: "blue", onClick: () => setTab("plans") },
-          { label: "office", title: "Офисная точка", helper: "карта и радиус", icon: <MapPin size={22} />, tone: "amber", onClick: () => setTab("office") }
-        ]}
-        plans={sourcePlans}
-        people={dashboard.interns.map((intern) => ({
-          id: intern.id,
-          name: intern.name,
-          caption: intern.categoryLabel || "департамент не выбран",
-          avatarColor: intern.avatarColor,
-          avatarUrl: intern.avatarUrl,
-          score: intern.averageScore,
-          active: intern.activeToday,
-          tags: [intern.role === "lead" ? "тимлид" : "стажер", intern.activeToday ? "активен" : "нет отметки"],
-          onOpen: () => openIntern(intern.id)
-        }))}
-        alerts={adminHomeAlerts}
-      />
-      <AiAssistantDialog plans={plans.map((plan) => ({ ...plan, categoryLabel: categoryOptions.find((category) => category.value === plan.category)?.label }))} />
+      {tab === 'overview' && (<>
+        <RoleHomeDashboard
+          user={user}
+          roleLabel="Администратор"
+          title={`Контроль платформы, ${user.name.split(" ")[0] || user.name}`}
+          subtitle="Единая панель для пользователей, планов, офисной точки, Telegram-рассылок и AI-сводок по всем департаментам."
+          score={dashboard.stats.averageScore}
+          scoreLabel="AI здоровье платформы"
+          focusTitle="Платформа и департаменты"
+          focusSubtitle="Активные планы, команды и системные сигналы"
+          metrics={[
+            { icon: <Users />, label: users.length ? "Пользователей" : "Стажеров", value: users.length || dashboard.stats.internsTotal, caption: users.length ? "загружено из базы" : "по дашборду", tone: "neutral" },
+            { icon: <UserCog />, label: "Тимлидов", value: users.length ? users.filter((user) => user.role === "lead").length : "откр. вкладку", caption: "доступы через админку", tone: "neutral" },
+            { icon: <Sparkles />, label: "AI отчетов", value: dashboard.stats.aiReviewedReports, caption: "обработано моделью", tone: "good" },
+            { icon: <ClipboardList />, label: "Планов", value: sourcePlans.length, caption: "активные и загруженные", tone: sourcePlans.length ? "good" : "warn" },
+            { icon: <History />, label: "Действий", value: auditLog.length || "по вкладке", caption: "журнал аудита", tone: "neutral" }
+          ]}
+          actions={[
+            { label: "broadcast", title: "Telegram рассылка", helper: "на случай сбоя cron", icon: <Megaphone size={22} />, tone: "green", onClick: runTelegramRecoveryBroadcast },
+            { label: "create-plan", title: "Создать план", helper: "департамент и тимлид", icon: <Save size={22} />, tone: "blue", onClick: () => setTab("plans") },
+            { label: "office", title: "Офисная точка", helper: "карта и радиус", icon: <MapPin size={22} />, tone: "amber", onClick: () => setTab("office") }
+          ]}
+          plans={sourcePlans}
+          people={dashboard.interns.map((intern) => ({
+            id: intern.id,
+            name: intern.name,
+            caption: intern.categoryLabel || "департамент не выбран",
+            avatarColor: intern.avatarColor,
+            avatarUrl: intern.avatarUrl,
+            score: intern.averageScore,
+            active: intern.activeToday,
+            tags: [intern.role === "lead" ? "тимлид" : "стажер", intern.activeToday ? "активен" : "нет отметки"],
+            onOpen: () => openIntern(intern.id)
+          }))}
+          alerts={adminHomeAlerts}
+        />
+        <AiAssistantDialog plans={plans.map((plan) => ({ ...plan, categoryLabel: categoryOptions.find((category) => category.value === plan.category)?.label }))} />
 
-      <section className="telegramControlPanel">
-        <div>
-          <strong>Аварийная Telegram-рассылка</strong>
-          <p>Если cron не сработал, отправьте мотивацию во все группы и досылайте анонсы активных планов без Telegram-уведомления.</p>
-          {telegramBroadcast && (
-            <small>
-              Групп: {telegramBroadcast.groups} · мотиваций: {telegramBroadcast.motivationMessages} · планов к проверке: {telegramBroadcast.pendingPlans} ·
-              анонсировано планов: {telegramBroadcast.announcedPlans} · сообщений о планах: {telegramBroadcast.planAnnouncementMessages}
-            </small>
-          )}
-        </div>
-        <button className="primaryButton" type="button" onClick={runTelegramRecoveryBroadcast} disabled={telegramBroadcastBusy}>
-          <Megaphone size={18} />
-          {telegramBroadcastBusy ? "Отправляю..." : "Разослать в Telegram"}
-        </button>
-      </section>
+        <section className="telegramControlPanel">
+          <div>
+            <strong>Аварийная Telegram-рассылка</strong>
+            <p>Если cron не сработал, отправьте мотивацию во все группы и досылайте анонсы активных планов без Telegram-уведомления.</p>
+            {telegramBroadcast && (
+              <small>
+                Групп: {telegramBroadcast.groups} · мотиваций: {telegramBroadcast.motivationMessages} · планов к проверке: {telegramBroadcast.pendingPlans} ·
+                анонсировано планов: {telegramBroadcast.announcedPlans} · сообщений о планах: {telegramBroadcast.planAnnouncementMessages}
+              </small>
+            )}
+          </div>
+          <button className="primaryButton" type="button" onClick={runTelegramRecoveryBroadcast} disabled={telegramBroadcastBusy}>
+            <Megaphone size={18} />
+            {telegramBroadcastBusy ? "Отправляю..." : "Разослать в Telegram"}
+          </button>
+        </section>
 
-      <TelegramGroupsPanel compact />
+        <TelegramGroupsPanel compact />
+      </>
+      )}
 
       <div className="tabs adminTabs">
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
@@ -544,6 +549,15 @@ function UsersAccess({
 }
 
 function Overview({ dashboard, decisionCenter, onOpenIntern }: { dashboard: Dashboard; decisionCenter: DecisionCenter; onOpenIntern: (id: string) => void }) {
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+
+  // Basic kanban grouping mock
+  const columns = [
+    { id: "new", title: "Новые", items: dashboard.interns.filter(i => i.reportsCount === 0) },
+    { id: "active", title: "В работе", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore >= 50) },
+    { id: "risk", title: "Зона риска", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore < 50) },
+  ];
+
   return (
     <>
       <DecisionCenterPanel data={decisionCenter} />
@@ -569,25 +583,89 @@ function Overview({ dashboard, decisionCenter, onOpenIntern }: { dashboard: Dash
       </section>
 
       <section className="panel tablePanel">
-        <h2>Все стажеры</h2>
-        <div className="table">
-          {dashboard.interns.map((intern) => (
-            <button className="row clickableRow" key={intern.id} onClick={() => onOpenIntern(intern.id)}>
-              <div className="person">
-                <div className="avatar small" style={{ background: intern.avatarColor }}>
-                  {intern.name.slice(0, 1)}
-                </div>
-                <div>
-                  <strong>{intern.name}</strong>
-                  <span>{intern.categoryLabel || "департамент не выбран"}</span>
+        <div className="sectionTitleLine">
+          <div>
+            <h2>Все стажеры <span className="badgeCounter">{dashboard.interns.length}</span></h2>
+          </div>
+          <div className="tabs inlineTabs" style={{ margin: 0, border: "none", padding: 0 }}>
+            <button className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")}>Список</button>
+            <button className={viewMode === "kanban" ? "active" : ""} onClick={() => setViewMode("kanban")}>Канбан</button>
+          </div>
+        </div>
+
+        {viewMode === "list" ? (
+          <div className="table">
+            {dashboard.interns.map((intern) => (
+              <div className="row" key={intern.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button className="row clickableRow" style={{ flex: 1, border: "none", background: "transparent", padding: 0, margin: 0 }} onClick={() => onOpenIntern(intern.id)}>
+                  <div className="person">
+                    <div className="avatar small" style={{ background: intern.avatarColor }}>
+                      {intern.name.slice(0, 1)}
+                    </div>
+                    <div>
+                      <strong>{intern.name}</strong>
+                      <span>{intern.categoryLabel || "департамент не выбран"}</span>
+                    </div>
+                  </div>
+                  <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн сегодня" : "нет отметки"}</span>
+                  <span>{intern.reportsCount} отчетов</span>
+                  <strong>{intern.averageScore}%</strong>
+                </button>
+                <div style={{ marginLeft: "16px" }}>
+                  <DropdownMenu items={[
+                    { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
+                    { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) },
+                    { label: "Изменить", onClick: () => alert("Редактирование профиля") },
+                    { label: "Удалить", onClick: () => alert("Удаление"), danger: true }
+                  ]} />
                 </div>
               </div>
-              <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн сегодня" : "нет отметки"}</span>
-              <span>{intern.reportsCount} отчетов</span>
-              <strong>{intern.averageScore}%</strong>
-            </button>
-          ))}
-        </div>
+            ))}
+            {!dashboard.interns.length && <p>На платформе пока нет стажеров.</p>}
+          </div>
+        ) : (
+          <div className="kanbanBoard">
+            {columns.map(col => (
+              <div className="kanbanColumn" key={col.id}>
+                <div className="kanbanColumnHeader">
+                  <strong>{col.title} <span className="badgeCounter primary">{col.items.length}</span></strong>
+                </div>
+                <div className="kanbanColumnList">
+                  {col.items.map(intern => (
+                    <div className="kanbanCard" key={intern.id} onClick={() => onOpenIntern(intern.id)}>
+                      <div className="kanbanCardHeader">
+                        <div className="tagLine">
+                          <span>{intern.categoryLabel || "Без роли"}</span>
+                        </div>
+                        <DropdownMenu items={[
+                          { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
+                          { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) }
+                        ]} />
+                      </div>
+                      <div className="person" style={{ margin: "12px 0" }}>
+                        <div className="avatar small" style={{ background: intern.avatarColor }}>
+                          {intern.name.slice(0, 1)}
+                        </div>
+                        <div>
+                          <strong>{intern.name}</strong>
+                          <span style={{ fontSize: "12px" }}>Продуктивность: {intern.averageScore}%</span>
+                        </div>
+                      </div>
+                      <div className="progressBar">
+                        <i style={{ width: `${intern.averageScore}%` }} />
+                      </div>
+                      <div className="kanbanCardFooter">
+                        <span className={intern.activeToday ? "status ok" : "status"}>{intern.activeToday ? "онлайн" : "офлайн"}</span>
+                        <small>{intern.reportsCount} отчетов</small>
+                      </div>
+                    </div>
+                  ))}
+                  {!col.items.length && <div className="mutedText" style={{ fontSize: "12px", textAlign: "center", padding: "16px" }}>Нет стажеров</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <ReportList reports={dashboard.reports} />
@@ -1281,3 +1359,4 @@ function AdminPlanDetailsModal({
     </div>
   );
 }
+
