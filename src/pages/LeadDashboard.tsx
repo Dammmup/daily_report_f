@@ -277,7 +277,7 @@ export function LeadDashboard({ user }: { user: User }) {
         />
       )}
       <AiAssistantDialog />
-      <TelegramHelp user={user} />
+      <TelegramHelp user={user} compact />
 
 
 

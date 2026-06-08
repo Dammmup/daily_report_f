@@ -17,6 +17,7 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
   const [stepMessage, setStepMessage] = useState("");
   const [stepBusyId, setStepBusyId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reportToast, setReportToast] = useState<string | null>(null);
   const dailyFormRef = useRef<HTMLFormElement>(null);
   const planRef = useRef<HTMLElement>(null);
   const reportsRef = useRef<HTMLDivElement>(null);
@@ -92,14 +93,19 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
     event.preventDefault();
     setBusy(true);
     try {
+      let saved: Report;
       if (editingReportId) {
-        await api(`/api/reports/${editingReportId}`, { method: "PATCH", body: JSON.stringify(form) });
+        saved = await api<Report>(`/api/reports/${editingReportId}`, { method: "PATCH", body: JSON.stringify(form) });
       } else {
-        await api("/api/reports", { method: "POST", body: JSON.stringify(form) });
+        saved = await api<Report>("/api/reports", { method: "POST", body: JSON.stringify(form) });
       }
       setForm({ yesterday: "", todayPlan: "", blockers: "", linkedStepIds: [] });
       setEditingReportId(null);
       await refresh();
+      // Toast уведомление
+      const score = saved?.aiReview?.productivityScore;
+      setReportToast(score != null ? `✅ Дэйлик отправлен! AI оценка: ${score}%` : "✅ Дэйлик отправлен!");
+      setTimeout(() => setReportToast(null), 5000);
     } finally {
       setBusy(false);
     }
@@ -258,6 +264,13 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
         plans={homePlans}
         alerts={homeAlerts}
       />
+
+      {reportToast && (
+        <div className="oauthToast success" onClick={() => setReportToast(null)} style={{ cursor: "pointer" }}>
+          <span>{reportToast}</span>
+          <button type="button" className="oauthToastClose">×</button>
+        </div>
+      )}
 
       {(attendanceMessage || stepMessage) && (
         <div className="actionMessage floatingMessage">
