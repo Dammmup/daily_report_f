@@ -123,11 +123,19 @@ export function DecisionCenterPanel({ data }: { data: DecisionCenter }) {
           </strong>
           {candidates.length ? (
             candidates.map((candidate) => (
-              <div className="decisionItem" key={candidate.user.id}>
-                <span>{candidate.user.name}</span>
-                <b>{candidate.score}/100</b>
+              <div className="decisionItem decisionCandidate" key={candidate.user.id}>
+                <div className="decisionCandidateTop">
+                  {candidate.user.avatarUrl ? <img className="avatar small" src={candidate.user.avatarUrl} alt={candidate.user.name} /> : <span className="avatar small" style={{ background: candidate.user.avatarColor }}>{candidate.user.name.slice(0, 1)}</span>}
+                  <div>
+                    <span>{candidate.user.name}</span>
+                    <small>{candidate.user.categoryLabel || "департамент не выбран"} · {candidate.source === "same_department" ? "свой департамент" : "другой департамент"}</small>
+                  </div>
+                  <b>{candidate.score}/100</b>
+                </div>
+                <div className="reportScoreBar">
+                  <i style={{ width: `${Math.max(0, Math.min(100, candidate.score))}%` }} />
+                </div>
                 <small>{candidate.matchReason}</small>
-                <small>{candidate.user.categoryLabel || "департамент не выбран"} · {candidate.source === "same_department" ? "свой департамент" : "другой департамент"}</small>
               </div>
             ))
           ) : (

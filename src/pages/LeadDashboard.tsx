@@ -1,4 +1,4 @@
-import { BarChart3, Bot, BrainCircuit, CalendarCheck, ChevronLeft, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
+import { BarChart3, Bot, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, MapPin, Plus, Save, Send, Sparkles, Users } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, getToken, uploadFile, type AiReview, type AiSummary, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Report, type RiskCenter, type StepThread, type User } from "../api";
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
@@ -11,6 +11,7 @@ import { OfficeLocationMapPanel } from "../components/OfficeLocationMapPanel";
 import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
+import { RoleHomeDashboard, type HomeAlert } from "../components/RoleHomeDashboard";
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { TelegramHelp } from "../components/TelegramHelp";
@@ -141,6 +142,17 @@ export function LeadDashboard({ user }: { user: User }) {
   }, []);
 
   useEffect(() => {
+    function handleNavigation(event: Event) {
+      const key = (event as CustomEvent<string>).detail;
+      if (key === "dashboard" || key === "interns") setTab("overview");
+      if (key === "overview" || key === "plans" || key === "automation" || key === "ai") setTab(key);
+    }
+
+    window.addEventListener("dailyreport:navigate", handleNavigation);
+    return () => window.removeEventListener("dailyreport:navigate", handleNavigation);
+  }, []);
+
+  useEffect(() => {
     if (tab === "overview") {
       void loadDecisionCenter();
       void loadRiskCenter();
@@ -199,13 +211,66 @@ export function LeadDashboard({ user }: { user: User }) {
   const activeDepartmentPlans = planHistory.filter((plan) => plan.status === "draft" || plan.status === "approved");
   const visibleActivePlans = activeDepartmentPlans.length ? activeDepartmentPlans : departmentPlan ? [departmentPlan] : [];
   const archivedDepartmentPlans = planHistory.filter((plan) => plan.status !== "draft" && plan.status !== "approved");
+  const leadHomePlans = dashboard.stats.plans.map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    category: plan.categoryLabel,
+    deadline: plan.adjustedDeadline,
+    progress: plan.progress.completionPercent,
+    done: plan.progress.done,
+    total: plan.progress.total,
+    status: plan.progress.overdue ? "есть риск" : "активен",
+    onOpen: () => setTab("plans"),
+    tasks: [
+      { id: `${plan.id}-todo`, title: `Ожидают: ${plan.progress.todo}`, meta: plan.progress.unassigned ? `без исполнителя ${plan.progress.unassigned}` : "назначения проверены", status: "todo" as const },
+      { id: `${plan.id}-progress`, title: `В работе: ${plan.progress.inProgress}`, meta: plan.progress.overdue ? `просрочено ${plan.progress.overdue}` : "без просрочек", status: "in_progress" as const },
+      { id: `${plan.id}-done`, title: `Готово: ${plan.progress.done}`, meta: `${plan.progress.completionPercent}% закрыто`, status: "done" as const }
+    ]
+  }));
+  const leadHomePeople = dashboard.interns.map((intern) => ({
+    id: intern.id,
+    name: intern.name,
+    caption: intern.categoryLabel || "департамент не выбран",
+    avatarColor: intern.avatarColor,
+    avatarUrl: intern.avatarUrl,
+    score: intern.averageScore,
+    active: intern.activeToday,
+    tags: [intern.activeToday ? "сегодня активен" : "нет отметки", `${intern.assignedOpenSteps} шагов`],
+    onOpen: () => openIntern(intern.id)
+  }));
+  const leadHomeAlerts: HomeAlert[] = [
+    ...(riskCenter?.overdueSteps.length ? [{ id: "overdue", title: "Есть просроченные шаги", text: `${riskCenter.overdueSteps.length} шагов требуют решения по срокам.`, tone: "danger" as const, actionLabel: "Открыть планы", onAction: () => setTab("plans") }] : []),
+    ...(riskCenter?.missingReports.length ? [{ id: "missing", title: "Не все дэйлики закрыты", text: `${riskCenter.missingReports.length} стажеров без отчета сегодня.`, tone: "warn" as const }] : []),
+    ...(decisionCenter?.recommended.length ? [{ id: "fit", title: "AI подобрал кандидатов", text: `Есть ${decisionCenter.recommended.length} рекомендаций под активный план.`, tone: "good" as const, actionLabel: "Центр решений", onAction: () => setTab("overview") }] : []),
+    ...(dashboard.stats.plans.length ? [] : [{ id: "no-plan", title: "Нет активного плана", text: "Создайте план, чтобы стажеры могли брать шаги и писать дэйлики по задачам.", tone: "info" as const, actionLabel: "Создать", onAction: () => setTab("plans") }])
+  ];
 
   return (
     <section className="flow">
-      <Header
-        eyebrow={user.categoryLabel || "Тимлид"}
-        title={tab === "overview" ? "Активность стажеров" : tab === "plans" ? "Планы департамента" : tab === "automation" ? "Автоматизация и Telegram" : "AI-сводка стажеров"}
-        icon={<Users />}
+      <RoleHomeDashboard
+        user={user}
+        roleLabel={user.categoryLabel || "Тимлид"}
+        title={`Добро пожаловать, ${user.name.split(" ")[0] || user.name}`}
+        subtitle="Рабочий стол тимлида показывает, кто активен, какие шаги горят, кого AI советует на план и что нужно сделать сегодня."
+        score={dashboard.stats.averageScore}
+        scoreLabel="Средний балл команды"
+        focusTitle="Планы и загрузка"
+        focusSubtitle="Активные планы, прогресс и назначенные шаги"
+        metrics={[
+          { icon: <Users />, label: "Стажеров", value: dashboard.stats.internsTotal, caption: user.categoryLabel || "ваш департамент", tone: "neutral" },
+          { icon: <CalendarCheck />, label: "Отметились сегодня", value: dashboard.stats.checkedInToday, caption: "видим активность", tone: dashboard.stats.checkedInToday ? "good" : "warn" },
+          { icon: <Sparkles />, label: "AI проверок", value: dashboard.stats.aiReviewedReports, caption: "дэйлики и профили", tone: "good" },
+          { icon: <BarChart3 />, label: "Средний балл", value: `${dashboard.stats.averageScore}%`, caption: "по отчетам", tone: dashboard.stats.averageScore >= 70 ? "good" : "warn" },
+          { icon: <ClipboardList />, label: "Активных планов", value: dashboard.stats.plans.length, caption: "можно открыть ниже", tone: dashboard.stats.plans.length ? "neutral" : "warn" }
+        ]}
+        actions={[
+          { label: "create-plan", title: "Создать план", helper: "AI разобьет на шаги", icon: <Save size={22} />, tone: "green", onClick: () => setTab("plans") },
+          { label: "ai-fit", title: "AI подбор", helper: "Кто подходит под задачу", icon: <Bot size={22} />, tone: "dark", onClick: () => setTab("overview") },
+          { label: "telegram", title: "Telegram", helper: "Сводки и расписание", icon: <CalendarCheck size={22} />, tone: "blue", onClick: () => setTab("automation") }
+        ]}
+        plans={leadHomePlans}
+        people={leadHomePeople}
+        alerts={leadHomeAlerts}
       />
       <AiAssistantDialog />
       <TelegramHelp user={user} />

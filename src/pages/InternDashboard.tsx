@@ -1,9 +1,8 @@
-import { Activity, BarChart3, Bot, CalendarCheck, CheckCircle2, ClipboardList, FileText, ListChecks, MapPin, Send, Target } from "lucide-react";
+import { BarChart3, Bot, CalendarCheck, CheckCircle2, ClipboardList, FileText, ListChecks, MapPin, Send, Target } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api, uploadFile, type AttendanceSummary, type Category, type Plan, type Report, type StepThread, type User } from "../api";
-import { Header } from "../components/Header";
-import { Metric } from "../components/Metric";
 import { ReportList } from "../components/ReportList";
+import { RoleHomeDashboard, type HomeAlert } from "../components/RoleHomeDashboard";
 import { categoryOptions } from "../constants";
 import { businessDateIso } from "../date";
 
@@ -20,6 +19,7 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
   const [busy, setBusy] = useState(false);
   const dailyFormRef = useRef<HTMLFormElement>(null);
   const planRef = useRef<HTMLElement>(null);
+  const reportsRef = useRef<HTMLDivElement>(null);
 
   async function refresh() {
     const [reportList, planList, attendanceData] = await Promise.all([
@@ -34,6 +34,19 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  useEffect(() => {
+    function handleNavigation(event: Event) {
+      const key = (event as CustomEvent<string>).detail;
+      if (key === "dashboard") window.scrollTo({ top: 0, behavior: "smooth" });
+      if (key === "steps") planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (key === "daily") dailyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (key === "ai-profile") reportsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    window.addEventListener("dailyreport:navigate", handleNavigation);
+    return () => window.removeEventListener("dailyreport:navigate", handleNavigation);
   }, []);
 
   async function checkIn() {
@@ -145,72 +158,113 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
   const todayReport = useMemo(() => reports.find((report) => isToday(report.date) || isToday(report.createdAt)), [reports]);
   const completedSteps = useMemo(() => planStepRows.filter(({ step }) => step.status === "done").length, [planStepRows]);
   const planProgress = planStepRows.length ? Math.round((completedSteps / planStepRows.length) * 100) : 0;
-  const nearestDeadline = useMemo(
-    () => [...plans].sort((left, right) => left.adjustedDeadline.localeCompare(right.adjustedDeadline))[0]?.adjustedDeadline,
+  const primaryPlan = useMemo(
+    () => [...plans].sort((left, right) => left.adjustedDeadline.localeCompare(right.adjustedDeadline))[0],
     [plans]
   );
+  const nearestDeadline = primaryPlan?.adjustedDeadline;
+  const homePlans = useMemo(
+    () =>
+      plans.map((plan) => {
+        const total = plan.steps?.length || 0;
+        const done = plan.steps?.filter((step) => step.status === "done").length || 0;
+        const progress = total ? Math.round((done / total) * 100) : 0;
+        return {
+          id: plan.id,
+          title: plan.title,
+          category: plan.categoryLabel || user.categoryLabel,
+          deadline: plan.adjustedDeadline,
+          progress,
+          done,
+          total,
+          status: plan.status === "approved" ? "активен" : "черновик",
+          onOpen: () => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          tasks: (plan.steps || []).slice(0, 6).map((step) => ({
+            id: step.id,
+            title: step.title,
+            meta: step.assignedTo === user.id ? `мой шаг · до ${step.deadline}` : step.assignedTo ? `назначен · до ${step.deadline}` : "свободный шаг",
+            status: step.status
+          }))
+        };
+      }),
+    [plans, user.categoryLabel, user.id]
+  );
+  const homeAlerts = useMemo(() => {
+    const alerts: HomeAlert[] = [];
+    if (!attendanceSummary?.checkedInToday) {
+      alerts.push({ id: "attendance", title: "Нет отметки за сегодня", text: "Нажмите отметку, когда будете в офисе или начнете рабочий день.", tone: "warn" as const, actionLabel: "Отметиться", onAction: checkIn });
+    }
+    if (!todayReport) {
+      alerts.push({ id: "daily", title: "Дэйлик еще не отправлен", text: "Опишите вчерашний результат, план на сегодня и блокеры.", tone: "danger" as const, actionLabel: "Открыть форму", onAction: () => dailyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) });
+    }
+    if (!plans.length) {
+      alerts.push({ id: "plan", title: "План департамента ожидается", text: "После утверждения тимлидом здесь появятся шаги и дедлайны.", tone: "info" as const });
+    } else if (!assignedSteps.length && availableSteps.length) {
+      alerts.push({ id: "claim", title: "Есть свободные шаги", text: "Выберите один шаг, чтобы тимлид видел вашу загрузку.", tone: "info" as const, actionLabel: "К шагам", onAction: () => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) });
+    }
+    if (attendanceSummary && !attendanceSummary.requirementMet) {
+      alerts.push({ id: "office", title: "Офисная норма не закрыта", text: `${attendanceSummary.currentWeekOfficeDays}/${attendanceSummary.minWeeklyOfficeDays} отметок за неделю.`, tone: "warn" as const });
+    }
+    return alerts;
+  }, [assignedSteps.length, attendanceSummary, availableSteps.length, plans.length, todayReport]);
 
   return (
     <section className="flow">
-      <Header eyebrow={user.categoryLabel || "Стажер"} title="Рабочий день" icon={<Activity />} />
+      <RoleHomeDashboard
+        user={user}
+        roleLabel={user.categoryLabel || "Стажер"}
+        title={`Добро пожаловать, ${user.name.split(" ")[0] || user.name}`}
+        subtitle="На сегодня достаточно закрыть три вещи: отметиться, отправить дэйлик и взять или обновить свой шаг по плану."
+        score={average}
+        scoreLabel="Продуктивность"
+        focusTitle="Мой рабочий день"
+        focusSubtitle="Отметка, дэйлик и назначенные шаги"
+        metrics={[
+          { icon: <CalendarCheck />, label: "Отчетов", value: reports.length, caption: todayReport ? "сегодня закрыто" : "сегодня ожидается", tone: todayReport ? "good" : "warn" },
+          { icon: <BarChart3 />, label: "Средняя продуктивность", value: `${average}%`, caption: "по AI-оценкам", tone: average >= 70 ? "good" : average >= 45 ? "warn" : "danger" },
+          { icon: <Target />, label: "Дедлайн", value: nearestDeadline || "не задан", caption: primaryPlan?.title || "ждем план", tone: primaryPlan ? "neutral" : "warn" },
+          { icon: <MapPin />, label: "Офис за неделю", value: `${attendanceSummary?.currentWeekOfficeDays || 0}/${attendanceSummary?.minWeeklyOfficeDays || 2}`, caption: attendanceSummary?.requirementMet ? "норма закрыта" : "нужно добрать", tone: attendanceSummary?.requirementMet ? "good" : "warn" },
+          { icon: <Bot />, label: "Telegram", value: user.telegramLinked ? "привязан" : "ожидает", caption: user.telegramLinked ? "можно писать боту" : "свяжите аккаунт", tone: user.telegramLinked ? "good" : "neutral" }
+        ]}
+        actions={[
+          {
+            label: "attendance",
+            title: attendanceSummary?.checkedInToday ? "Отметка есть" : "Отметиться",
+            helper: attendanceSummary?.officeLocation ? `${attendanceSummary.currentWeekOfficeDays || 0}/${attendanceSummary.minWeeklyOfficeDays || 2} офиса за неделю` : "Офисная точка не задана",
+            icon: <CalendarCheck size={22} />,
+            done: attendanceSummary?.checkedInToday,
+            tone: "green",
+            onClick: checkIn
+          },
+          {
+            label: "daily",
+            title: todayReport ? "Дэйлик отправлен" : "Написать дэйлик",
+            helper: todayReport?.aiReview ? `AI оценка ${todayReport.aiReview.productivityScore}%` : "Вчера, сегодня, блокеры",
+            icon: <FileText size={22} />,
+            done: Boolean(todayReport),
+            tone: "blue",
+            onClick: () => dailyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+          },
+          {
+            label: "step",
+            title: assignedSteps.length ? "Шаг в работе" : "Взять шаг",
+            helper: assignedSteps[0]?.step.title || (availableSteps.length ? `${availableSteps.length} свободных шагов` : "Ждем план или назначение"),
+            icon: <ListChecks size={22} />,
+            done: Boolean(assignedSteps.length),
+            tone: "amber",
+            onClick: () => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        ]}
+        plans={homePlans}
+        alerts={homeAlerts}
+      />
 
-      <section className="internCommandCenter">
-        <div className="internCommandHeader">
-          <div>
-            <span>Сегодня</span>
-            <h2>Отметка, дэйлик, шаг</h2>
-            <p>Главные действия вынесены наверх. Остальные детали можно открыть ниже, когда они понадобятся.</p>
-          </div>
-          <div className="moodStrip" aria-label="Настроение дня">
-            {(["focused", "normal", "blocked"] as const).map((item) => (
-              <button key={item} className={mood === item ? "active" : ""} onClick={() => setMood(item)} type="button">
-                {item === "focused" ? "В фокусе" : item === "normal" ? "Обычный день" : "Есть блокер"}
-              </button>
-            ))}
-          </div>
+      {(attendanceMessage || stepMessage) && (
+        <div className="actionMessage floatingMessage">
+          {attendanceMessage ? <small className={attendanceMessage === "Отметка сохранена" ? "successText" : "errorText"}>{attendanceMessage}</small> : null}
+          {stepMessage ? <small className={stepMessage.includes("Не") ? "errorText" : "successText"}>{stepMessage}</small> : null}
         </div>
-
-        <div className="internActionGrid">
-          <button className={attendanceSummary?.checkedInToday ? "internActionCard done" : "internActionCard"} onClick={checkIn} type="button">
-            <span className="actionIcon"><CalendarCheck size={22} /></span>
-            <strong>{attendanceSummary?.checkedInToday ? "Отметка есть" : "Отметиться"}</strong>
-            <small>
-              {attendanceSummary?.officeLocation
-                ? `${attendanceSummary.currentWeekOfficeDays || 0}/${attendanceSummary.minWeeklyOfficeDays || 2} офиса за неделю`
-                : "Офисная точка не задана"}
-            </small>
-          </button>
-          <button className={todayReport ? "internActionCard done" : "internActionCard"} onClick={() => dailyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">
-            <span className="actionIcon"><FileText size={22} /></span>
-            <strong>{todayReport ? "Дэйлик отправлен" : "Написать дэйлик"}</strong>
-            <small>{todayReport?.aiReview ? `AI оценка ${todayReport.aiReview.productivityScore}%` : "Вчера, сегодня, блокеры"}</small>
-          </button>
-          <button className={assignedSteps.length || completedAssignedSteps.length ? "internActionCard done" : "internActionCard"} onClick={() => planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">
-            <span className="actionIcon"><ListChecks size={22} /></span>
-            <strong>{assignedSteps.length ? "Шаг в работе" : completedAssignedSteps.length ? "Шаг завершен" : "Взять шаг"}</strong>
-            <small>{assignedSteps[0]?.step.title || completedAssignedSteps[0]?.step.title || (availableSteps.length ? `${availableSteps.length} свободных шагов` : "Ждем план или назначение")}</small>
-          </button>
-        </div>
-
-        {(attendanceMessage || stepMessage) && (
-          <div className="actionMessage">
-            {attendanceMessage ? <small className={attendanceMessage === "Отметка сохранена" ? "successText" : "errorText"}>{attendanceMessage}</small> : null}
-            {stepMessage ? <small className={stepMessage.includes("Не") ? "errorText" : "successText"}>{stepMessage}</small> : null}
-          </div>
-        )}
-      </section>
-
-      <div className="metrics compactMetrics">
-        <Metric icon={<CalendarCheck />} label="Отчетов" value={reports.length} />
-        <Metric icon={<BarChart3 />} label="Средняя продуктивность" value={`${average}%`} />
-        <Metric icon={<Target />} label="Дедлайн" value={nearestDeadline || "не задан"} />
-        <Metric
-          icon={<MapPin />}
-          label="Офис за неделю"
-          value={`${attendanceSummary?.currentWeekOfficeDays || 0}/${attendanceSummary?.minWeeklyOfficeDays || 2}`}
-        />
-        <Metric icon={<Bot />} label="Telegram" value={user.telegramLinked ? "привязан" : "ожидает"} />
-      </div>
+      )}
 
       <section className="panel internPlanPanel" ref={planRef}>
         <div className="sectionTitleLine">
@@ -355,18 +409,20 @@ export function InternDashboard({ user, onUser }: { user: User; onUser: (user: U
         </button>
       </form>
 
-      <ReportList
-        reports={reports}
-        onEdit={(report) => {
-          setEditingReportId(report.id);
-          setForm({
-            yesterday: report.yesterday,
-            todayPlan: report.todayPlan,
-            blockers: report.blockers,
-            linkedStepIds: report.linkedStepIds || []
-          });
-        }}
-      />
+      <div ref={reportsRef}>
+        <ReportList
+          reports={reports}
+          onEdit={(report) => {
+            setEditingReportId(report.id);
+            setForm({
+              yesterday: report.yesterday,
+              todayPlan: report.todayPlan,
+              blockers: report.blockers,
+              linkedStepIds: report.linkedStepIds || []
+            });
+          }}
+        />
+      </div>
     </section>
   );
 }

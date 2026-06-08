@@ -11,6 +11,7 @@ import { OfficeLocationMapPanel } from "../components/OfficeLocationMapPanel";
 import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
+import { RoleHomeDashboard, type HomeAlert, type HomePlan } from "../components/RoleHomeDashboard";
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { categoryOptions } from "../constants";
@@ -66,7 +67,7 @@ function registrationMeta(user: User) {
   return "Источник: web";
 }
 
-export function AdminDashboard() {
+export function AdminDashboard({ user }: { user: User }) {
   const [users, setUsers] = useState<DraftUser[]>([]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
@@ -136,6 +137,17 @@ export function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    function handleNavigation(event: Event) {
+      const key = (event as CustomEvent<string>).detail;
+      if (key === "dashboard") setTab("overview");
+      if (key === "users" || key === "overview" || key === "ai" || key === "plans" || key === "office" || key === "audit") setTab(key);
+    }
+
+    window.addEventListener("dailyreport:navigate", handleNavigation);
+    return () => window.removeEventListener("dailyreport:navigate", handleNavigation);
+  }, []);
+
+  useEffect(() => {
     if (tab === "users") void loadUsers();
     if (tab === "ai") void loadAiSummary();
     if (tab === "plans") void loadPlans();
@@ -185,18 +197,91 @@ export function AdminDashboard() {
   if (loading || !dashboard || !decisionCenter) return <ShellLoading />;
   if (selectedIntern) return <InternProfileView profile={selectedIntern} onBack={() => setSelectedIntern(null)} />;
 
+  const sourcePlans: HomePlan[] = plans.length
+    ? plans.map((plan) => {
+        const total = plan.steps?.length || 0;
+        const done = plan.steps?.filter((step) => step.status === "done").length || 0;
+        const inProgress = plan.steps?.filter((step) => step.status === "in_progress").length || 0;
+        const progress = total ? Math.round((done / total) * 100) : 0;
+        return {
+          id: plan.id,
+          title: plan.title,
+          category: categoryOptions.find((category) => category.value === plan.category)?.label || plan.category,
+          lead: plan.lead?.name,
+          deadline: plan.adjustedDeadline,
+          progress,
+          done,
+          total,
+          status: plan.status === "approved" ? "утвержден" : plan.status,
+          onOpen: () => setTab("plans"),
+          tasks: [
+            { id: `${plan.id}-todo`, title: `Ожидают: ${Math.max(total - done - inProgress, 0)}`, meta: "проверить назначение", status: "todo" as const },
+            { id: `${plan.id}-progress`, title: `В работе: ${inProgress}`, meta: "активные задачи", status: "in_progress" as const },
+            { id: `${plan.id}-done`, title: `Готово: ${done}`, meta: `${progress}% закрыто`, status: "done" as const }
+          ]
+        };
+      })
+    : dashboard.stats.plans.map((plan) => ({
+        id: plan.id,
+        title: plan.title,
+        category: plan.categoryLabel,
+        deadline: plan.adjustedDeadline,
+        progress: plan.progress.completionPercent,
+        done: plan.progress.done,
+        total: plan.progress.total,
+        status: plan.progress.overdue ? "есть риск" : "активен",
+        onOpen: () => setTab("plans"),
+        tasks: [
+          { id: `${plan.id}-todo`, title: `Ожидают: ${plan.progress.todo}`, meta: plan.progress.unassigned ? `без исполнителя ${plan.progress.unassigned}` : "назначены", status: "todo" as const },
+          { id: `${plan.id}-progress`, title: `В работе: ${plan.progress.inProgress}`, meta: plan.progress.overdue ? `просрочено ${plan.progress.overdue}` : "по графику", status: "in_progress" as const },
+          { id: `${plan.id}-done`, title: `Готово: ${plan.progress.done}`, meta: `${plan.progress.completionPercent}% закрыто`, status: "done" as const }
+        ]
+      }));
+  const adminHomeAlerts: HomeAlert[] = [
+    ...(decisionCenter.attention.length ? [{ id: "attention", title: "Есть зона внимания", text: `${decisionCenter.attention.length} стажеров требуют проверки AI-сводки.`, tone: "warn" as const, actionLabel: "AI-сводка", onAction: () => setTab("ai") }] : []),
+    ...(decisionCenter.missingReports.length ? [{ id: "missing", title: "Дэйлики не закрыты", text: `${decisionCenter.missingReports.length} пользователей без отчета сегодня.`, tone: "danger" as const }] : []),
+    ...(telegramBroadcast ? [{ id: "telegram", title: "Рассылка выполнена", text: `Групп: ${telegramBroadcast.groups}, сообщений о планах: ${telegramBroadcast.planAnnouncementMessages}.`, tone: "good" as const }] : []),
+    ...(sourcePlans.length ? [] : [{ id: "plans", title: "Планы еще не загружены", text: "Откройте вкладку планов или создайте новый план для департамента.", tone: "info" as const, actionLabel: "Планы", onAction: () => setTab("plans") }])
+  ];
+
   return (
     <section className="flow">
-      <Header eyebrow="Админка" title="Контроль платформы" icon={<ShieldCheck />} />
+      <RoleHomeDashboard
+        user={user}
+        roleLabel="Администратор"
+        title={`Контроль платформы, ${user.name.split(" ")[0] || user.name}`}
+        subtitle="Единая панель для пользователей, планов, офисной точки, Telegram-рассылок и AI-сводок по всем департаментам."
+        score={dashboard.stats.averageScore}
+        scoreLabel="AI здоровье платформы"
+        focusTitle="Платформа и департаменты"
+        focusSubtitle="Активные планы, команды и системные сигналы"
+        metrics={[
+          { icon: <Users />, label: users.length ? "Пользователей" : "Стажеров", value: users.length || dashboard.stats.internsTotal, caption: users.length ? "загружено из базы" : "по дашборду", tone: "neutral" },
+          { icon: <UserCog />, label: "Тимлидов", value: users.length ? users.filter((user) => user.role === "lead").length : "откр. вкладку", caption: "доступы через админку", tone: "neutral" },
+          { icon: <Sparkles />, label: "AI отчетов", value: dashboard.stats.aiReviewedReports, caption: "обработано моделью", tone: "good" },
+          { icon: <ClipboardList />, label: "Планов", value: sourcePlans.length, caption: "активные и загруженные", tone: sourcePlans.length ? "good" : "warn" },
+          { icon: <History />, label: "Действий", value: auditLog.length || "по вкладке", caption: "журнал аудита", tone: "neutral" }
+        ]}
+        actions={[
+          { label: "broadcast", title: "Telegram рассылка", helper: "на случай сбоя cron", icon: <Megaphone size={22} />, tone: "green", onClick: runTelegramRecoveryBroadcast },
+          { label: "create-plan", title: "Создать план", helper: "департамент и тимлид", icon: <Save size={22} />, tone: "blue", onClick: () => setTab("plans") },
+          { label: "office", title: "Офисная точка", helper: "карта и радиус", icon: <MapPin size={22} />, tone: "amber", onClick: () => setTab("office") }
+        ]}
+        plans={sourcePlans}
+        people={dashboard.interns.map((intern) => ({
+          id: intern.id,
+          name: intern.name,
+          caption: intern.categoryLabel || "департамент не выбран",
+          avatarColor: intern.avatarColor,
+          avatarUrl: intern.avatarUrl,
+          score: intern.averageScore,
+          active: intern.activeToday,
+          tags: [intern.role === "lead" ? "тимлид" : "стажер", intern.activeToday ? "активен" : "нет отметки"],
+          onOpen: () => openIntern(intern.id)
+        }))}
+        alerts={adminHomeAlerts}
+      />
       <AiAssistantDialog plans={plans.map((plan) => ({ ...plan, categoryLabel: categoryOptions.find((category) => category.value === plan.category)?.label }))} />
-
-      <div className="metrics">
-        <Metric icon={<Users />} label={users.length ? "Пользователей" : "Стажеров"} value={users.length || dashboard.stats.internsTotal} />
-        <Metric icon={<UserCog />} label="Тимлидов" value={users.length ? users.filter((user) => user.role === "lead").length : "откр. вкладку"} />
-        <Metric icon={<Sparkles />} label="AI отчетов" value={dashboard.stats.aiReviewedReports} />
-        <Metric icon={<ClipboardList />} label="Планов" value={plans.length || dashboard.stats.plans.length} />
-        <Metric icon={<History />} label="Действий" value={auditLog.length || "по вкладке"} />
-      </div>
 
       <section className="telegramControlPanel">
         <div>
