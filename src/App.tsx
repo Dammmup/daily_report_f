@@ -1,4 +1,4 @@
-import { ImagePlus, LogOut, Settings } from "lucide-react";
+import { ClipboardList, Home, ImagePlus, LogOut, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, clearToken, getToken, setToken, uploadFile, type User } from "./api";
 import { ShellLoading } from "./components/ShellLoading";
@@ -100,10 +100,28 @@ export function App() {
           </div>
         </div>
         {session.user.role !== "admin" && <TelegramHelp user={session.user} compact />}
-        <button className="ghostButton" onClick={() => setProfileOpen((value) => !value)}>
-          <Settings size={18} />
-          Профиль
-        </button>
+        <nav className="sideNav" aria-label="Основная навигация">
+          <button className="sideNavItem active" type="button" onClick={scrollToTop}>
+            <Home size={18} />
+            Обзор
+          </button>
+          <button
+            className="sideNavItem"
+            type="button"
+            onClick={() =>
+              (session.user.role === "intern"
+                ? document.querySelector("form.panel")
+                : document.querySelector(".tabs"))?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          >
+            <ClipboardList size={18} />
+            {session.user.role === "intern" ? "Дэйлик" : "Разделы"}
+          </button>
+          <button className="sideNavItem" type="button" onClick={() => setProfileOpen((value) => !value)}>
+            <UserRound size={18} />
+            Профиль
+          </button>
+        </nav>
         {profileOpen && <ProfileSettings user={session.user} onUser={(user) => setSession({ ...session, user })} />}
         <button className="ghostButton" onClick={logout}>
           <LogOut size={18} />

@@ -2540,3 +2540,618 @@ textarea {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Task Management Dashboard visual refresh */
+:root {
+  color: #131213;
+  background: #f2f2f4;
+  --surface: #ffffff;
+  --surface-muted: #f7f7f8;
+  --surface-raised: #fbfbfc;
+  --ink: #131213;
+  --ink-soft: #445941;
+  --muted: #747780;
+  --line: #e3e4e8;
+  --line-strong: #d7d9df;
+  --brand: #445941;
+  --brand-2: #7d9662;
+  --brand-soft: #abd2a7;
+  --brand-wash: #eef5ec;
+  --warning: #b7791f;
+  --danger: #b64f4f;
+  --shadow: 0 18px 48px rgba(19, 18, 19, 0.08);
+  --shadow-soft: 0 10px 28px rgba(19, 18, 19, 0.06);
+}
+
+body {
+  background:
+    linear-gradient(180deg, #f8f8f9 0%, #f2f2f4 280px),
+    #f2f2f4;
+}
+
+.app {
+  grid-template-columns: 292px minmax(0, 1fr);
+  gap: 0;
+  background: #f2f2f4;
+}
+
+.sidebar {
+  margin: 16px 0 16px 16px;
+  height: calc(100vh - 32px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: #131213;
+  color: #f7f7f8;
+  box-shadow: 0 26px 70px rgba(19, 18, 19, 0.22);
+}
+
+.workspace {
+  padding: 28px 32px 40px;
+}
+
+.flow {
+  gap: 18px;
+}
+
+.brand {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(242, 242, 244, 0.09);
+}
+
+.brandMark {
+  background: #abd2a7;
+  color: #131213;
+  box-shadow: inset 0 0 0 1px rgba(19, 18, 19, 0.08);
+}
+
+.brand span,
+.profile span,
+.person span,
+.telegramBox.compact span {
+  color: #bec1ca;
+}
+
+.profile {
+  padding: 10px;
+  border: 1px solid rgba(242, 242, 244, 0.1);
+  border-radius: 8px;
+  background: rgba(242, 242, 244, 0.06);
+}
+
+.sideNav {
+  display: grid;
+  gap: 8px;
+}
+
+.sideNavItem {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: transparent;
+  color: #bec1ca;
+  font-weight: 800;
+  text-align: left;
+}
+
+.sideNavItem:hover,
+.sideNavItem.active {
+  background: #f2f2f4;
+  color: #131213;
+}
+
+.sideNavItem.active svg {
+  color: #445941;
+}
+
+.profileSettings,
+.telegramBox.compact {
+  border-color: rgba(242, 242, 244, 0.1);
+  background: rgba(242, 242, 244, 0.06);
+}
+
+.sidebar > .ghostButton {
+  background: rgba(242, 242, 244, 0.08);
+  color: #f7f7f8;
+}
+
+.pageHeader {
+  min-height: 76px;
+  padding: 4px 2px;
+}
+
+.pageHeader span,
+.internCommandHeader span,
+.sectionTitleLine span,
+.decisionTargetCard span,
+.planMetaGrid span {
+  color: #7d9662;
+  letter-spacing: 0;
+}
+
+.pageHeader h1 {
+  max-width: 760px;
+  margin-top: 4px;
+  font-size: clamp(28px, 3vw, 44px);
+  line-height: 1.02;
+  color: #131213;
+}
+
+.headerIcon {
+  background: #131213;
+  color: #abd2a7;
+  box-shadow: var(--shadow-soft);
+}
+
+.metric,
+.panel,
+.reportCard,
+.internAiCard,
+.telegramControlPanel,
+.telegramGroupCard,
+.progressCard,
+.assignmentCard,
+.integrationConnectCard,
+.externalResourceCard,
+.internStepCard,
+.planSummaryCard,
+.candidateCard,
+.decisionTargetCard,
+.decisionGrid article {
+  border-color: var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.panel {
+  padding: 20px;
+}
+
+.metric {
+  min-height: 128px;
+  align-content: space-between;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 247, 248, 0.96)),
+    #ffffff;
+}
+
+.metric div,
+.metric svg,
+.scoreLine strong,
+.reportTop span,
+.criteriaItem strong,
+.decisionItem b,
+.planProgressBadge strong,
+.officeMapControls label strong,
+.stepDetails strong,
+.internTaskSection h3 svg {
+  color: #445941;
+}
+
+.metric div {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #eef5ec;
+}
+
+.metric span,
+.reportCard small,
+.internActionCard small,
+.actionMessage small,
+.telegramGroupCard > div:first-child span,
+.telegramGroupCard > div:first-child small,
+.integrationConnectCard small,
+.externalResourceCard small,
+.providerResourceResult small,
+.stepSummaryText span,
+.internStepHeader small,
+.internStepCard p,
+.planCardHeader p,
+.planHeroPanel p,
+.aiBox p,
+.panel p,
+.mutedText {
+  color: #747780;
+}
+
+.metric strong {
+  font-size: clamp(22px, 2vw, 30px);
+  color: #131213;
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.backButton,
+.iconButton,
+.telegramLinkButton,
+.tabs button,
+.segmented button,
+.chip,
+.sideNavItem {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.primaryButton {
+  background: #445941;
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(68, 89, 65, 0.22);
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.telegramLinkButton:hover,
+.backButton:hover,
+.iconButton:hover {
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  background: #131213;
+  color: #ffffff;
+}
+
+.lightButton,
+.threadBox .ghostButton,
+.stepPreviewPanel .ghostButton,
+.backButton,
+.iconButton {
+  background: #f2f2f4;
+  color: #131213;
+  border-color: #dfe1e6;
+}
+
+.dangerButton,
+.dangerAction {
+  background: #fee2e2;
+  color: #9f2f2f;
+}
+
+input,
+select,
+textarea {
+  border-color: #d7d9df;
+  background: #fbfbfc;
+  color: #131213;
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #7d9662;
+  box-shadow: 0 0 0 3px rgba(171, 210, 167, 0.34);
+}
+
+label {
+  color: #303238;
+}
+
+.tabs {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.tabs button {
+  border: 0;
+  background: transparent;
+  color: #747780;
+}
+
+.tabs .active,
+.segmented .active,
+.chip.active {
+  background: #131213;
+  color: #ffffff;
+  border-color: #131213;
+}
+
+.adminTabs,
+.inlineTabs {
+  max-width: none;
+}
+
+.adminTabs {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.internCommandCenter {
+  position: relative;
+  overflow: hidden;
+  border-color: #dfe7dc;
+  background:
+    linear-gradient(135deg, rgba(171, 210, 167, 0.34), rgba(255, 255, 255, 0) 42%),
+    #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.internCommandCenter::after {
+  content: "";
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 92px;
+  height: 92px;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 150, 98, 0.22);
+  background:
+    linear-gradient(#dfe8dc 1px, transparent 1px),
+    linear-gradient(90deg, #dfe8dc 1px, transparent 1px),
+    #f7faf5;
+  background-size: 18px 18px;
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.internCommandHeader,
+.internActionGrid,
+.actionMessage {
+  position: relative;
+  z-index: 1;
+}
+
+.moodStrip {
+  border-color: #dfe1e6;
+  background: #f7f7f8;
+}
+
+.moodStrip .active {
+  background: #445941;
+}
+
+.internActionCard,
+.planSummaryCard,
+.internStepCard {
+  background: #fbfbfc;
+}
+
+.internActionCard.done,
+.stepItem.assigned,
+.resourceAiCheck.low,
+.telegramGroupCard.primary,
+.internStepCard.mine {
+  border-color: rgba(125, 150, 98, 0.42);
+  background: #eef5ec;
+}
+
+.actionIcon,
+.stepNumber,
+.stepPlanLabel,
+.status.ok,
+.aiBox,
+.assignmentSummary,
+.linkedStepsBox,
+.segmented .active,
+.chip.active {
+  background: #eef5ec;
+  color: #445941;
+}
+
+.status,
+.timeline span,
+.tagLine a,
+.tagLine span {
+  background: #f0f1f3;
+  color: #555963;
+}
+
+.progressBar,
+.bar {
+  background: #e3e4e8;
+}
+
+.progressBar i,
+.bar i {
+  background: linear-gradient(90deg, #445941, #7d9662);
+}
+
+.planProgressBadge,
+.planMetaGrid div,
+.coordinateReadout span,
+.officeMapControls,
+.decisionSelector,
+.externalResourcesBody,
+.assignmentPanel,
+.providerResourcePicker,
+.trelloTokenForm,
+.stepDetails,
+.compactPerson {
+  border-color: #dfe1e6;
+  background: #f7f7f8;
+}
+
+.planTaskList {
+  gap: 10px;
+}
+
+.stepItem {
+  border-color: #e0e2e7;
+  background: #fbfbfc;
+}
+
+.stepSummaryButton {
+  background: #ffffff;
+}
+
+.stepSummaryButton:hover,
+.clickableRow:hover,
+.internAiCard:hover,
+.planHistoryButton:hover {
+  border-color: rgba(125, 150, 98, 0.44);
+  background: #f7faf5;
+}
+
+.assistantFab {
+  background: #131213;
+  color: #abd2a7;
+  box-shadow: 0 18px 44px rgba(19, 18, 19, 0.24);
+}
+
+.assistantModal,
+.modalContent,
+.planHeroPanel {
+  border-color: var(--line);
+  background: #ffffff;
+}
+
+.modalOverlay,
+.modalBackdrop {
+  background: rgba(19, 18, 19, 0.55);
+}
+
+.modalHeaderSticky {
+  border-bottom-color: var(--line);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.officeMapCanvas {
+  border-color: var(--line);
+  background: #e4e8e1;
+}
+
+.officeMapMarker {
+  background: #445941;
+  box-shadow: 0 10px 26px rgba(68, 89, 65, 0.34);
+}
+
+.loginPage,
+.centerScreen {
+  background:
+    linear-gradient(135deg, #131213 0%, #293328 54%, #f2f2f4 54%, #f2f2f4 100%);
+}
+
+.loginPanel {
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 28px 80px rgba(19, 18, 19, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.error {
+  color: #9f2f2f;
+  background: #fff0f0;
+}
+
+.notice {
+  background: #eef5ec;
+  color: #445941;
+}
+
+.codeBox {
+  background: #fbf2d6;
+  color: #7c5611;
+}
+
+.telegramLinkButton,
+.assignmentScore.high {
+  background: #445941;
+}
+
+.assignmentScore.medium,
+.warningButton {
+  background: #9f6a17 !important;
+}
+
+.assignmentScore.low {
+  background: #9f3d3d;
+}
+
+.oauthToast {
+  border-radius: 8px;
+}
+
+.oauthToast.success {
+  background: #445941;
+  border-color: #abd2a7;
+}
+
+.oauthToast.error {
+  background: #7f1d1d;
+}
+
+@media (max-width: 980px) {
+  .app {
+    background: #f2f2f4;
+  }
+
+  .sidebar {
+    margin: 0;
+    height: auto;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sideNav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sideNavItem {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    min-height: 58px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .workspace {
+    padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  }
+
+  .internCommandCenter::after {
+    display: none;
+  }
+
+  .mobileBottomNav {
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .mobileBottomNav button {
+    background: #131213;
+    color: #ffffff;
+  }
+}
+
+@media (max-width: 560px) {
+  .pageHeader {
+    align-items: flex-start;
+  }
+
+  .headerIcon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .sideNav {
+    grid-template-columns: 1fr;
+  }
+
+  .sideNavItem {
+    grid-template-columns: 22px 1fr;
+    justify-items: start;
+    text-align: left;
+    min-height: 44px;
+  }
+
+  .adminTabs {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .metric {
+    min-height: 104px;
+  }
+}
