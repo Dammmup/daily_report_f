@@ -75,17 +75,55 @@ button {
 }
 
 .topNavigation .brand {
+  display: flex;
+  align-items: center;
   flex: 1;
 }
 
 .topNavigation .sideNav {
-  flex: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   justify-content: center;
+  flex: none;
 }
 
 .topNavigation .sideTools {
-  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+  flex: 1;
+  margin-top: 0;
+}
+
+.topNavigation .sideNav button {
+  width: auto;
+  min-height: 38px;
+  padding: 0 16px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: #354052;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.topNavigation .sideNav button:hover,
+.topNavigation .sideNav button.active {
+  background: #f0f3f7;
+  color: #101827;
+}
+
+.topNavigation .sideNav button.active svg {
+  color: #3157ff;
 }
 
 .brand,
