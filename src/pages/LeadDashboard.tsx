@@ -59,7 +59,7 @@ export function LeadDashboard({ user }: { user: User }) {
   const [officeLocation, setOfficeLocation] = useState<OfficeLocation | null>(null);
   const [selectedIntern, setSelectedIntern] = useState<InternProfile | null>(null);
   const [viewingPlan, setViewingPlan] = useState<Plan | null>(null);
-  const [tab, setTab] = useState<"overview" | "plans" | "automation" | "ai">("overview");
+  const [tab, setTab] = useState<"overview" | "interns" | "plans" | "automation" | "ai">("overview");
   const [loadedSections, setLoadedSections] = useState({
     decision: false,
     plans: false,
@@ -146,8 +146,8 @@ export function LeadDashboard({ user }: { user: User }) {
     function handleNavigation(event: Event) {
       const key = (event as CustomEvent<string>).detail;
       setSelectedIntern(null);
-      if (key === "dashboard" || key === "interns") setTab("overview");
-      if (key === "overview" || key === "plans" || key === "automation" || key === "ai") setTab(key);
+      if (key === "dashboard") setTab("overview");
+      if (key === "interns" || key === "overview" || key === "plans" || key === "automation" || key === "ai") setTab(key);
     }
 
     window.addEventListener("dailyreport:navigate", handleNavigation);
@@ -283,6 +283,9 @@ export function LeadDashboard({ user }: { user: User }) {
         <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
           Обзор
         </button>
+        <button className={tab === "interns" ? "active" : ""} onClick={() => setTab("interns")}>
+          Стажеры
+        </button>
         <button className={tab === "plans" ? "active" : ""} onClick={() => setTab("plans")}>
           Планы
         </button>
@@ -299,7 +302,12 @@ export function LeadDashboard({ user }: { user: User }) {
           {decisionCenter ? <DecisionCenterPanel data={decisionCenter} /> : <ShellLoading />}
           {riskCenter && <RiskCenterPanel data={riskCenter} weeklyReview={weeklyReview} />}
           <PlanProgressPanel plans={dashboard.stats.plans} />
-          <Overview dashboard={dashboard} onOpenIntern={openIntern} />
+        </>
+      ) : null}
+
+      {tab === "interns" ? (
+        <>
+          <InternsPanel dashboard={dashboard} onOpenIntern={openIntern} />
         </>
       ) : null}
 
@@ -917,7 +925,7 @@ function TelegramDigestPanel() {
   );
 }
 
-function Overview({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
+function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
   // Basic kanban grouping mock

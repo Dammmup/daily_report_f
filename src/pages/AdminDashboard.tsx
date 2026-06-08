@@ -308,11 +308,11 @@ export function AdminDashboard({ user }: { user: User }) {
       )}
 
       <div className="tabs adminTabs">
-        <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
-          Пользователи
-        </button>
         <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
           Обзор
+        </button>
+        <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
+          Пользователи
         </button>
         <button className={tab === "ai" ? "active" : ""} onClick={() => setTab("ai")}>
           AI-сводка
@@ -328,8 +328,15 @@ export function AdminDashboard({ user }: { user: User }) {
         </button>
       </div>
 
-      {tab === "users" && (loadedTabs.users ? <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} /> : <ShellLoading />)}
-      {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} onOpenIntern={openIntern} />}
+      {tab === "users" && (
+        loadedTabs.users ? (
+          <>
+            <InternsPanel dashboard={dashboard} onOpenIntern={openIntern} />
+            <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} />
+          </>
+        ) : <ShellLoading />
+      )}
+      {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} />}
       {tab === "ai" && (aiSummary ? <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} /> : <ShellLoading />)}
       {tab === "plans" && (
         loadedTabs.plans ? (
@@ -548,7 +555,7 @@ function UsersAccess({
   );
 }
 
-function Overview({ dashboard, decisionCenter, onOpenIntern }: { dashboard: Dashboard; decisionCenter: DecisionCenter; onOpenIntern: (id: string) => void }) {
+function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
   // Basic kanban grouping mock
@@ -560,15 +567,6 @@ function Overview({ dashboard, decisionCenter, onOpenIntern }: { dashboard: Dash
 
   return (
     <>
-      <DecisionCenterPanel data={decisionCenter} />
-
-      <div className="metrics">
-        <Metric icon={<Users />} label="Стажеров" value={dashboard.stats.internsTotal} />
-        <Metric icon={<CalendarCheck />} label="Отметились сегодня" value={dashboard.stats.checkedInToday} />
-        <Metric icon={<Sparkles />} label="AI проверок" value={dashboard.stats.aiReviewedReports} />
-        <Metric icon={<BarChart3 />} label="Средний балл" value={`${dashboard.stats.averageScore}%`} />
-      </div>
-
       <section className="categoryGrid">
         {dashboard.stats.byCategory.map((category) => (
           <article className="panel mini" key={category.key}>
@@ -667,8 +665,21 @@ function Overview({ dashboard, decisionCenter, onOpenIntern }: { dashboard: Dash
           </div>
         )}
       </section>
+    </>
+  );
+}
 
-      <ReportList reports={dashboard.reports} />
+function Overview({ dashboard, decisionCenter }: { dashboard: Dashboard; decisionCenter: DecisionCenter }) {
+  return (
+    <>
+      <DecisionCenterPanel data={decisionCenter} />
+
+      <div className="metrics">
+        <Metric icon={<Users />} label="Стажеров" value={dashboard.stats.internsTotal} />
+        <Metric icon={<CalendarCheck />} label="Отметились сегодня" value={dashboard.stats.checkedInToday} />
+        <Metric icon={<Sparkles />} label="AI проверок" value={dashboard.stats.aiReviewedReports} />
+        <Metric icon={<BarChart3 />} label="Средний балл" value={`${dashboard.stats.averageScore}%`} />
+      </div>
     </>
   );
 }

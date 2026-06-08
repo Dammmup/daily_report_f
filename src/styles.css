@@ -74,6 +74,20 @@ button {
   border-bottom: 1px solid #e2e8f0;
 }
 
+.topNavigation .brand {
+  flex: 1;
+}
+
+.topNavigation .sideNav {
+  flex: none;
+  justify-content: center;
+}
+
+.topNavigation .sideTools {
+  flex: 1;
+  justify-content: flex-end;
+}
+
 .brand,
 .profile,
 .person,
