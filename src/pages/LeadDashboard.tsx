@@ -279,23 +279,7 @@ export function LeadDashboard({ user }: { user: User }) {
       <AiAssistantDialog />
       <TelegramHelp user={user} />
 
-      <div className="tabs inlineTabs">
-        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
-          Обзор
-        </button>
-        <button className={tab === "interns" ? "active" : ""} onClick={() => setTab("interns")}>
-          Стажеры
-        </button>
-        <button className={tab === "plans" ? "active" : ""} onClick={() => setTab("plans")}>
-          Планы
-        </button>
-        <button className={tab === "automation" ? "active" : ""} onClick={() => setTab("automation")}>
-          Автоматизация
-        </button>
-        <button className={tab === "ai" ? "active" : ""} onClick={() => setTab("ai")}>
-          AI-сводка
-        </button>
-      </div>
+
 
       {tab === "overview" ? (
         <>

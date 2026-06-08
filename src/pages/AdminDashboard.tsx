@@ -307,26 +307,7 @@ export function AdminDashboard({ user }: { user: User }) {
       </>
       )}
 
-      <div className="tabs adminTabs">
-        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
-          Обзор
-        </button>
-        <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
-          Пользователи
-        </button>
-        <button className={tab === "ai" ? "active" : ""} onClick={() => setTab("ai")}>
-          AI-сводка
-        </button>
-        <button className={tab === "plans" ? "active" : ""} onClick={() => setTab("plans")}>
-          Планы
-        </button>
-        <button className={tab === "office" ? "active" : ""} onClick={() => setTab("office")}>
-          Офис
-        </button>
-        <button className={tab === "audit" ? "active" : ""} onClick={() => setTab("audit")}>
-          Журнал
-        </button>
-      </div>
+
 
       {tab === "users" && (
         loadedTabs.users ? (

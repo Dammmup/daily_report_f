@@ -1,4 +1,4 @@
-import { Bell, Bot, CalendarDays, ClipboardList, ImagePlus, LayoutDashboard, LogOut, Search, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { Bell, Bot, CalendarDays, ClipboardList, History, ImagePlus, LayoutDashboard, LogOut, MapPin, Search, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, clearToken, getToken, setToken, uploadFile, type User } from "./api";
 import { ShellLoading } from "./components/ShellLoading";
@@ -158,7 +158,8 @@ function getNavItems(role: User["role"]) {
       { key: "users", label: "Пользователи", icon: <Users size={17} /> },
       { key: "plans", label: "Планы", icon: <ClipboardList size={17} /> },
       { key: "ai", label: "AI центр", icon: <ShieldCheck size={17} /> },
-      { key: "office", label: "Офис", icon: <CalendarDays size={17} /> }
+      { key: "office", label: "Офис", icon: <MapPin size={17} /> },
+      { key: "audit", label: "Журнал", icon: <History size={17} /> }
     ];
   }
 
@@ -167,8 +168,9 @@ function getNavItems(role: User["role"]) {
       { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={17} /> },
       { key: "interns", label: "Стажеры", icon: <Users size={17} /> },
       { key: "plans", label: "Планы", icon: <ClipboardList size={17} /> },
-      { key: "ai", label: "AI подбор", icon: <Bot size={17} /> },
-      { key: "automation", label: "Настройки", icon: <Settings size={17} /> }
+      { key: "automation", label: "Автоматизация", icon: <Bot size={17} /> },
+      { key: "ai", label: "AI центр", icon: <ShieldCheck size={17} /> },
+      { key: "settings", label: "Настройки", icon: <Settings size={17} /> }
     ];
   }
 
