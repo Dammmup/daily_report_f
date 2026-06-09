@@ -955,8 +955,8 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
         {viewMode === "list" ? (
           <div className="table">
             {dashboard.interns.map((intern) => (
-              <div className="row" key={intern.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button className="row clickableRow" style={{ flex: 1, border: "none", background: "transparent", padding: 0, margin: 0 }} onClick={() => onOpenIntern(intern.id)}>
+              <div className="rowWithActions" key={intern.id}>
+                <button className="row clickableRow" onClick={() => onOpenIntern(intern.id)}>
                   <div className="person">
                     <div className="avatar small" style={{ background: intern.avatarColor }}>
                       {intern.name.slice(0, 1)}
@@ -972,7 +972,7 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
                   <span>{intern.reportsCount} отчетов</span>
                   <strong>{intern.averageScore}%</strong>
                 </button>
-                <div style={{ marginLeft: "16px" }}>
+                <div>
                   <DropdownMenu items={[
                     { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
                     { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) },

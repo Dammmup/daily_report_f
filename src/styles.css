@@ -2427,7 +2427,10 @@ textarea {
     min-height: 42px;
     border: 0;
     border-radius: 12px;
-    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #131213;
     color: #ffffff;
     font-size: 13px;
     font-weight: 800;
@@ -4390,8 +4393,11 @@ label {
   .topNavigation {
     margin: 0;
     height: auto;
-    display: block;
-    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));
     background: #f4f7fb;
   }
 
@@ -4404,17 +4410,36 @@ label {
     box-shadow: none;
   }
 
-  .sideNav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .topNavigation .brand {
+    margin-right: 0;
   }
 
-  .sideNavItem {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
-    min-height: 58px;
-    padding: 8px;
-    font-size: 13px;
+  .topNavigation .sideNav {
+    display: flex;
+    flex: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 0 0 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .topNavigation .sideNav button {
+    flex: none;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .topNavigation .sideTools {
+    flex: none;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .topNavigation .topSearch {
+    flex: 1 1 100%;
   }
 
   .workspace {
@@ -4427,19 +4452,6 @@ label {
 
   .mobileBottomNav {
     background: rgba(255, 255, 255, 0.96);
-  }
-
-  .mobileBottomNav button {
-    background: #131213;
-    color: #ffffff;
-    display: flex;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .sideNav button {
-    width: auto;
-    white-space: nowrap;
   }
 
   .sideTools {
@@ -4513,15 +4525,9 @@ label {
     height: 46px;
   }
 
-  .sideNav {
-    grid-template-columns: 1fr;
-  }
-
-  .sideNavItem {
-    grid-template-columns: 22px 1fr;
-    justify-items: start;
-    text-align: left;
-    min-height: 44px;
+  .topNavigation .sideNav button {
+    padding: 0 12px;
+    font-size: 13px;
   }
 
   .adminTabs {
@@ -5293,4 +5299,127 @@ label {
 .kanbanCardFooter small {
   color: #64748b;
   font-weight: 500;
+}
+
+/* --- Responsive fixes (consolidated; keep at end of file so rules win over late base styles) --- */
+
+/* Intern list row with trailing dropdown actions (replaces inline styles in Admin/Lead dashboards) */
+.rowWithActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid #e8edf4;
+}
+
+.rowWithActions .row {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  .rowWithActions {
+    align-items: flex-start;
+    padding: 12px 0;
+  }
+
+  .rowWithActions .row {
+    padding: 0;
+  }
+}
+
+/* dvh: correct mobile viewport height (browsers without dvh keep the vh fallback above) */
+.modalContent {
+  height: min(920px, calc(100dvh - 32px));
+}
+
+.profileSettings {
+  max-height: calc(100dvh - 96px);
+}
+
+.planMetaGridTwoCol {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  .planMetaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Tablet: keep two columns instead of jumping straight to one */
+@media (min-width: 700px) and (max-width: 980px) {
+  .compactMetrics,
+  .traitGrid,
+  .homeMetricStrip,
+  .officeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adminTabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .materialForm,
+  .planMetaGrid,
+  .planMetaGridTwoCol {
+    grid-template-columns: 1fr;
+  }
+
+  .adminTabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .settingsFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .modalContent {
+    height: calc(100dvh - 16px);
+  }
+
+  .assistantCommandModal {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .profileSettings {
+    max-height: calc(100dvh - 28px);
+  }
+
+  .kanbanColumn {
+    min-width: min(280px, 86vw);
+  }
+}
+
+@media (max-width: 560px) {
+  .traitGrid,
+  .segmented {
+    grid-template-columns: 1fr;
+  }
+
+  .integrationConnectCard,
+  .assignmentCardHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .strengthChecks {
+    grid-template-columns: 1fr;
+  }
+
+  .officeGrid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .tabs,
+  .adminTabs {
+    grid-template-columns: 1fr 1fr;
+  }
 }
