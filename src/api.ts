@@ -444,19 +444,23 @@ export type UploadedFile = {
   contentType: string;
 };
 
-const tokenKey = "dailyreport-token";
 const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 
+// Токен держим только в памяти, а не в localStorage: аутентификация работает через
+// httpOnly-cookie (credentials: "include"), а сессия восстанавливается через /api/me.
+// Так украсть долгоживущий токен через XSS уже нельзя.
+let inMemoryToken: string | null = null;
+
 export function getToken() {
-  return localStorage.getItem(tokenKey);
+  return inMemoryToken;
 }
 
 export function setToken(token: string) {
-  localStorage.setItem(tokenKey, token);
+  inMemoryToken = token;
 }
 
 export function clearToken() {
-  localStorage.removeItem(tokenKey);
+  inMemoryToken = null;
 }
 
 export class ApiError extends Error {

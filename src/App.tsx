@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, clearToken, getToken, setToken, uploadFile, type User } from "./api";
 import { ShellLoading } from "./components/ShellLoading";
 import { TelegramHelp } from "./components/TelegramHelp";
+import { TelegramGroupsPanel } from "./components/TelegramGroupsPanel";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { DepartmentSelect } from "./pages/DepartmentSelect";
 import { InternDashboard } from "./pages/InternDashboard";
@@ -251,6 +252,10 @@ function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user:
   const [password, setPassword] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [activeSection, setActiveSection] = useState<"account" | "security" | "telegram">("account");
+
+  const subtitle = user.categoryLabel || roleLabels[user.role];
+  const sectionTitle = activeSection === "account" ? "Профиль" : activeSection === "security" ? "Безопасность" : "Telegram";
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
@@ -265,7 +270,8 @@ function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user:
       setMessage("Новые пароли не совпадают");
       return;
     }
-    await api("/api/me/password", { method: "PATCH", body: JSON.stringify({ currentPassword: password.currentPassword, newPassword: password.newPassword }) });
+    const result = await api<{ ok: boolean; token?: string }>("/api/me/password", { method: "PATCH", body: JSON.stringify({ currentPassword: password.currentPassword, newPassword: password.newPassword }) });
+    if (result.token) setToken(result.token);
     setPassword({ currentPassword: "", newPassword: "", confirmPassword: "" });
     setMessage("Пароль изменен");
   }
@@ -283,83 +289,99 @@ function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user:
   }
 
   return (
-    <div className="profileSettings">
-      <aside className="profileSettingsMenu">
-        <div className="profileSettingsAvatar">
-          {form.avatarUrl ? <img className="avatar" src={form.avatarUrl} alt={form.name} /> : <span className="avatar" style={{ background: form.avatarColor }}>{form.name.slice(0, 1)}</span>}
-          <div>
-            <strong>{user.name}</strong>
-            <span>{user.categoryLabel || roleLabels[user.role]}</span>
+    <div className="profileSettingsBackdrop" role="presentation" onMouseDown={onClose}>
+      <div className="profileSettings" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <aside className="profileSettingsMenu">
+          <div className="profileSettingsAvatar">
+            {form.avatarUrl ? <img className="avatar" src={form.avatarUrl} alt={form.name} /> : <span className="avatar" style={{ background: form.avatarColor }}>{form.name.slice(0, 1)}</span>}
+            <div>
+              <strong>{user.name}</strong>
+              {subtitle && subtitle !== user.name && <span>{subtitle}</span>}
+            </div>
           </div>
-        </div>
-        <button className="active" type="button"><UserRound size={16} /> Аккаунт</button>
-        <button type="button"><Settings size={16} /> Безопасность</button>
-        <button type="button"><Bot size={16} /> Telegram</button>
-      </aside>
-      <div className="profileSettingsContent">
-        <div className="homeSectionHeader compact">
-          <div>
-            <span>Settings</span>
-            <h2>Профиль и безопасность</h2>
+          <button className={activeSection === "account" ? "active" : ""} type="button" onClick={() => setActiveSection("account")}><UserRound size={16} /> Аккаунт</button>
+          <button className={activeSection === "security" ? "active" : ""} type="button" onClick={() => setActiveSection("security")}><Settings size={16} /> Безопасность</button>
+          <button className={activeSection === "telegram" ? "active" : ""} type="button" onClick={() => setActiveSection("telegram")}><Bot size={16} /> Telegram</button>
+        </aside>
+        <div className="profileSettingsContent">
+          <div className="homeSectionHeader compact settingsHeader">
+            <div>
+              <span>Настройки</span>
+              <h2>{sectionTitle}</h2>
+            </div>
+            <button className="iconButton" type="button" onClick={onClose} aria-label="Закрыть настройки">
+              <X size={18} />
+            </button>
           </div>
-          <button className="iconButton" type="button" onClick={onClose} aria-label="Закрыть настройки">
-            <X size={18} />
-          </button>
-        </div>
-        <form className="settingsFormCard" onSubmit={saveProfile}>
-          <div className="settingsFormGrid">
-            <label>
-              Имя <span className="required">*</span>
-              <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Имя" required />
-            </label>
-            <label>
-              Цвет аватарки
-              <input value={form.avatarColor} onChange={(event) => setForm({ ...form, avatarColor: event.target.value })} placeholder="#10765a" />
-            </label>
-            <label>
-              Загрузить аватар
-              <div className="fileButton profileUploadButton" onClick={() => document.getElementById("avatarUpload")?.click()}>
-                <ImagePlus size={16} />
-                {uploading ? "Загружаю..." : "Выбрать файл..."}
-                <input id="avatarUpload" type="file" style={{ display: "none" }} accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadAvatar(event.target.files?.[0])} disabled={uploading} />
+
+          {activeSection === "account" && (
+            <form className="settingsFormCard" onSubmit={saveProfile}>
+              <div className="settingsFormGrid">
+                <label>
+                  Имя <span className="required">*</span>
+                  <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Имя" required />
+                </label>
+                <label>
+                  Цвет аватарки
+                  <input value={form.avatarColor} onChange={(event) => setForm({ ...form, avatarColor: event.target.value })} placeholder="#10765a" />
+                </label>
+                <label>
+                  Загрузить аватар
+                  <div className="fileButton profileUploadButton" onClick={() => document.getElementById("avatarUpload")?.click()}>
+                    <ImagePlus size={16} />
+                    {uploading ? "Загружаю..." : "Выбрать файл..."}
+                    <input id="avatarUpload" type="file" style={{ display: "none" }} accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadAvatar(event.target.files?.[0])} disabled={uploading} />
+                  </div>
+                </label>
+                <label>
+                  Ссылка на аватар
+                  <input value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://..." />
+                </label>
               </div>
-            </label>
-            <label>
-              Ссылка на аватар
-              <input value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://..." />
-            </label>
-          </div>
-          <label style={{ display: "block", marginTop: "16px" }}>
-            О себе
-            <textarea value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} placeholder="Коротко о роли, навыках или фокусе" />
-          </label>
-          <div style={{ marginTop: "16px" }}>
-            <button className="secondaryButton">Сохранить изменения</button>
-          </div>
-        </form>
-        <form className="settingsFormCard" onSubmit={changePassword}>
-          <h3>Смена пароля</h3>
-          <div className="settingsFormGrid">
-            <label>
-              Текущий пароль <span className="required">*</span>
-              <input type="password" value={password.currentPassword} onChange={(event) => setPassword({ ...password, currentPassword: event.target.value })} placeholder="••••••••" required />
-            </label>
-            <div></div>
-            <label>
-              Новый пароль <span className="required">*</span>
-              <input type="password" value={password.newPassword} onChange={(event) => setPassword({ ...password, newPassword: event.target.value })} placeholder="••••••••" required />
-            </label>
-            <label>
-              Подтвердите пароль <span className="required">*</span>
-              <input type="password" value={password.confirmPassword} onChange={(event) => setPassword({ ...password, confirmPassword: event.target.value })} placeholder="••••••••" required />
-            </label>
-          </div>
-          <PasswordStrengthIndicator password={password.newPassword} />
-          <div style={{ marginTop: "16px" }}>
-            <button className="secondaryButton">Сменить пароль</button>
-          </div>
-        </form>
-        {message && <small className="successText">{message}</small>}
+              <label style={{ display: "block", marginTop: "16px" }}>
+                О себе
+                <textarea value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} placeholder="Коротко о роли, навыках или фокусе" />
+              </label>
+              <div style={{ marginTop: "16px" }}>
+                <button className="secondaryButton">Сохранить изменения</button>
+              </div>
+            </form>
+          )}
+
+          {activeSection === "security" && (
+            <form className="settingsFormCard" onSubmit={changePassword}>
+              <h3>Смена пароля</h3>
+              <div className="settingsFormGrid">
+                <label>
+                  Текущий пароль <span className="required">*</span>
+                  <input type="password" value={password.currentPassword} onChange={(event) => setPassword({ ...password, currentPassword: event.target.value })} placeholder="••••••••" required />
+                </label>
+                <div></div>
+                <label>
+                  Новый пароль <span className="required">*</span>
+                  <input type="password" value={password.newPassword} onChange={(event) => setPassword({ ...password, newPassword: event.target.value })} placeholder="••••••••" required />
+                </label>
+                <label>
+                  Подтвердите пароль <span className="required">*</span>
+                  <input type="password" value={password.confirmPassword} onChange={(event) => setPassword({ ...password, confirmPassword: event.target.value })} placeholder="••••••••" required />
+                </label>
+              </div>
+              <PasswordStrengthIndicator password={password.newPassword} />
+              <div style={{ marginTop: "16px" }}>
+                <button className="secondaryButton">Сменить пароль</button>
+              </div>
+            </form>
+          )}
+
+          {activeSection === "telegram" && (
+            <div className="settingsTelegramSection">
+              <TelegramHelp user={user} compact />
+              {(user.role === "lead" || user.role === "admin") && <TelegramGroupsPanel />}
+            </div>
+          )}
+
+          {message && <small className="successText">{message}</small>}
+        </div>
       </div>
     </div>
   );

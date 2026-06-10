@@ -12,6 +12,7 @@ import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { RoleHomeDashboard, type HomeAlert } from "../components/RoleHomeDashboard";
+import { groupInternsByStage } from "../internStages";
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { TelegramHelp } from "../components/TelegramHelp";
@@ -126,8 +127,10 @@ export function LeadDashboard({ user }: { user: User }) {
   }
 
   async function downloadCsv() {
+    const token = getToken();
     const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/export.csv`, {
-      headers: { Authorization: `Bearer ${getToken()}` }
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
     });
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -912,12 +915,7 @@ function TelegramDigestPanel() {
 function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
-  // Basic kanban grouping mock
-  const columns = [
-    { id: "new", title: "Новые", items: dashboard.interns.filter(i => i.reportsCount === 0) },
-    { id: "active", title: "В работе", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore >= 50) },
-    { id: "risk", title: "Зона риска", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore < 50) },
-  ];
+  const columns = groupInternsByStage(dashboard.interns);
 
   return (
     <>
@@ -975,9 +973,7 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
                 <div>
                   <DropdownMenu items={[
                     { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
-                    { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) },
-                    { label: "Переместить", onClick: () => alert("Смена департамента") },
-                    { label: "Удалить", onClick: () => alert("Удаление"), danger: true }
+                    { label: "Отправить Email", onClick: () => { if (intern.email) window.location.href = `mailto:${intern.email}`; } }
                   ]} />
                 </div>
               </div>
@@ -1000,7 +996,7 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
                         </div>
                         <DropdownMenu items={[
                           { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
-                          { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) }
+                          { label: "Отправить Email", onClick: () => { if (intern.email) window.location.href = `mailto:${intern.email}`; } }
                         ]} />
                       </div>
                       <div className="person" style={{ margin: "12px 0" }}>

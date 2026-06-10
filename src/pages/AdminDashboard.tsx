@@ -12,8 +12,8 @@ import { PlanBulkAssignPanel } from "../components/PlanBulkAssignPanel";
 import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { RoleHomeDashboard, type HomeAlert, type HomePlan } from "../components/RoleHomeDashboard";
+import { groupInternsByStage } from "../internStages";
 import { ShellLoading } from "../components/ShellLoading";
-import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { categoryOptions } from "../constants";
 import { businessDateIso } from "../date";
 import { DropdownMenu } from "../components/DropdownMenu";
@@ -187,6 +187,13 @@ export function AdminDashboard({ user }: { user: User }) {
     setSelectedIntern(await api<InternProfile>(`/api/admin/interns/${id}`));
   }
 
+  async function deleteUser(id: string) {
+    await api(`/api/admin/users/${id}`, { method: "DELETE" });
+    if (selectedIntern?.user.id === id) setSelectedIntern(null);
+    setUsers((current) => current.filter((item) => item.id !== id));
+    await Promise.all([loadOverview(true), loadUsers(true)]);
+  }
+
   async function runTelegramRecoveryBroadcast() {
     setTelegramBroadcastBusy(true);
     try {
@@ -302,8 +309,6 @@ export function AdminDashboard({ user }: { user: User }) {
             {telegramBroadcastBusy ? "Отправляю..." : "Разослать в Telegram"}
           </button>
         </section>
-
-        <TelegramGroupsPanel compact />
       </>
       )}
 
@@ -312,13 +317,19 @@ export function AdminDashboard({ user }: { user: User }) {
       {tab === "users" && (
         loadedTabs.users ? (
           <>
-            <InternsPanel dashboard={dashboard} onOpenIntern={openIntern} />
+            <InternsPanel dashboard={dashboard} onOpenIntern={openIntern} onDeleteUser={deleteUser} />
             <UsersAccess users={users} savingId={savingId} onPatch={patchDraft} onSave={save} onOpenIntern={openIntern} />
           </>
         ) : <ShellLoading />
       )}
-      {tab === "overview" && <Overview dashboard={dashboard} decisionCenter={decisionCenter} />}
-      {tab === "ai" && (aiSummary ? <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} /> : <ShellLoading />)}
+      {tab === "ai" && (
+        aiSummary ? (
+          <>
+            <DecisionCenterPanel data={decisionCenter} />
+            <AiSummaryView summary={aiSummary} onOpenIntern={openIntern} />
+          </>
+        ) : <ShellLoading />
+      )}
       {tab === "plans" && (
         loadedTabs.plans ? (
           <PlansView
@@ -536,15 +547,11 @@ function UsersAccess({
   );
 }
 
-function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpenIntern: (id: string) => void }) {
+function InternsPanel({ dashboard, onOpenIntern, onDeleteUser }: { dashboard: Dashboard; onOpenIntern: (id: string) => void; onDeleteUser: (id: string) => Promise<void> }) {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [deletingUser, setDeletingUser] = useState<{ id: string; name: string } | null>(null);
 
-  // Basic kanban grouping mock
-  const columns = [
-    { id: "new", title: "Новые", items: dashboard.interns.filter(i => i.reportsCount === 0) },
-    { id: "active", title: "В работе", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore >= 50) },
-    { id: "risk", title: "Зона риска", items: dashboard.interns.filter(i => i.reportsCount > 0 && i.averageScore < 50) },
-  ];
+  const columns = groupInternsByStage(dashboard.interns);
 
   return (
     <>
@@ -593,9 +600,9 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
                 <div>
                   <DropdownMenu items={[
                     { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
-                    { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) },
-                    { label: "Изменить", onClick: () => alert("Редактирование профиля") },
-                    { label: "Удалить", onClick: () => alert("Удаление"), danger: true }
+                    { label: "Отправить Email", onClick: () => { if (intern.email) window.location.href = `mailto:${intern.email}`; } },
+                    { label: "Изменить", onClick: () => onOpenIntern(intern.id) },
+                    { label: "Удалить", onClick: () => setDeletingUser({ id: intern.id, name: intern.name }), danger: true }
                   ]} />
                 </div>
               </div>
@@ -618,7 +625,8 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
                         </div>
                         <DropdownMenu items={[
                           { label: "Открыть профиль", onClick: () => onOpenIntern(intern.id) },
-                          { label: "Отправить Email", onClick: () => alert("Открываем почту: " + intern.email) }
+                          { label: "Отправить Email", onClick: () => { if (intern.email) window.location.href = `mailto:${intern.email}`; } },
+                          { label: "Удалить", onClick: () => setDeletingUser({ id: intern.id, name: intern.name }), danger: true }
                         ]} />
                       </div>
                       <div className="person" style={{ margin: "12px 0" }}>
@@ -646,22 +654,59 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
           </div>
         )}
       </section>
+
+      {deletingUser && (
+        <ConfirmDeleteUserModal
+          user={deletingUser}
+          onConfirm={async () => {
+            await onDeleteUser(deletingUser.id);
+            setDeletingUser(null);
+          }}
+          onCancel={() => setDeletingUser(null)}
+        />
+      )}
     </>
   );
 }
 
-function Overview({ dashboard, decisionCenter }: { dashboard: Dashboard; decisionCenter: DecisionCenter }) {
-  return (
-    <>
-      <DecisionCenterPanel data={decisionCenter} />
+function ConfirmDeleteUserModal({ user, onConfirm, onCancel }: { user: { id: string; name: string }; onConfirm: () => Promise<void>; onCancel: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-      <div className="metrics">
-        <Metric icon={<Users />} label="Стажеров" value={dashboard.stats.internsTotal} />
-        <Metric icon={<CalendarCheck />} label="Отметились сегодня" value={dashboard.stats.checkedInToday} />
-        <Metric icon={<Sparkles />} label="AI проверок" value={dashboard.stats.aiReviewedReports} />
-        <Metric icon={<BarChart3 />} label="Средний балл" value={`${dashboard.stats.averageScore}%`} />
-      </div>
-    </>
+  async function confirm() {
+    setBusy(true);
+    setError("");
+    try {
+      await onConfirm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить пользователя");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onCancel}>
+      <section className="assistantModal confirmModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader">
+          <div>
+            <strong>Удалить пользователя?</strong>
+            <p>Аккаунт и связанные данные (отчёты, отметки, опрос) будут удалены без возможности восстановления. Назначенные шаги планов освободятся.</p>
+          </div>
+          <button className="iconButton" type="button" onClick={onCancel}>x</button>
+        </div>
+        <div className="deleteSummary">
+          <span>Пользователь</span>
+          <strong>{user.name}</strong>
+        </div>
+        {error && <p className="formError">{error}</p>}
+        <div className="buttonRow">
+          <button className="ghostButton lightButton" type="button" onClick={onCancel}>Отмена</button>
+          <button className="secondaryButton dangerAction" type="button" onClick={confirm} disabled={busy}>
+            {busy ? "Удаляю..." : "Да, удалить"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

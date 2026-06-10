@@ -5423,3 +5423,31 @@ label {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Модалка настроек: затемняющий бэкдроп + контрастные заголовки */
+.profileSettingsBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 89;
+}
+
+.settingsHeader span {
+  color: #64748b;
+}
+
+.settingsHeader h2,
+.settingsFormCard h3 {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.profileSettingsMenu button.active {
+  background: #eef2ff;
+  color: #1e293b;
+}
+
+.settingsTelegramSection {
+  display: grid;
+  gap: 14px;
+}
