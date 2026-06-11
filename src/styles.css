@@ -2672,6 +2672,7 @@ textarea {
   --surface-raised: #fbfbfc;
   --ink: #131213;
   --ink-soft: #445941;
+  --text: #131213;
   --muted: #747780;
   --line: #e3e4e8;
   --line-strong: #d7d9df;
@@ -2889,6 +2890,7 @@ body {
   --surface-raised: #fbfbfc;
   --ink: #131213;
   --ink-soft: #445941;
+  --text: #131213;
   --muted: #747780;
   --line: #e3e4e8;
   --line-strong: #d7d9df;

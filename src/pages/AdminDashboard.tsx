@@ -1,4 +1,4 @@
-import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Megaphone, Save, ShieldCheck, Sparkles, UserCog, Users, X } from "lucide-react";
+import { BarChart3, BrainCircuit, CalendarCheck, ChevronLeft, ClipboardList, History, MapPin, Megaphone, MessageCircle, Save, ShieldCheck, Sparkles, UserCog, Users, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, uploadFile, type AiSummary, type AuditLog, type Category, type Dashboard, type DecisionCenter, type InternProfile, type OfficeLocation, type Plan, type Role, type StepThread, type TelegramRecoveryBroadcastResult, type User } from "../api";
 import { AssignmentDraftPanel } from "../components/AssignmentDraftPanel";
@@ -13,6 +13,7 @@ import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { RoleHomeDashboard, type HomeAlert, type HomePlan } from "../components/RoleHomeDashboard";
 import { groupInternsByStage } from "../internStages";
+import { Avatar } from "../components/Avatar";
 import { ShellLoading } from "../components/ShellLoading";
 import { categoryOptions } from "../constants";
 import { businessDateIso } from "../date";
@@ -502,9 +503,7 @@ function UsersAccess({
         {users.map((user) => (
           <article className="adminRow" key={user.id}>
             <button className="person clickablePerson" onClick={() => user.role === "intern" && onOpenIntern(user.id)} disabled={user.role !== "intern"}>
-              <div className="avatar small" style={{ background: user.avatarColor }}>
-                {user.name.slice(0, 1)}
-              </div>
+              <Avatar small name={user.name} avatarColor={user.avatarColor} avatarUrl={user.avatarUrl} />
               <div>
                 <strong>{user.name}</strong>
                 <span>Email: {user.email || "не указан"}</span>
@@ -585,9 +584,7 @@ function InternsPanel({ dashboard, onOpenIntern, onDeleteUser }: { dashboard: Da
               <div className="rowWithActions" key={intern.id}>
                 <button className="row clickableRow" onClick={() => onOpenIntern(intern.id)}>
                   <div className="person">
-                    <div className="avatar small" style={{ background: intern.avatarColor }}>
-                      {intern.name.slice(0, 1)}
-                    </div>
+                    <Avatar small name={intern.name} avatarColor={intern.avatarColor} avatarUrl={intern.avatarUrl} />
                     <div>
                       <strong>{intern.name}</strong>
                       <span>{intern.categoryLabel || "департамент не выбран"}</span>
@@ -630,9 +627,7 @@ function InternsPanel({ dashboard, onOpenIntern, onDeleteUser }: { dashboard: Da
                         ]} />
                       </div>
                       <div className="person" style={{ margin: "12px 0" }}>
-                        <div className="avatar small" style={{ background: intern.avatarColor }}>
-                          {intern.name.slice(0, 1)}
-                        </div>
+                        <Avatar small name={intern.name} avatarColor={intern.avatarColor} avatarUrl={intern.avatarUrl} />
                         <div>
                           <strong>{intern.name}</strong>
                           <span style={{ fontSize: "12px" }}>Продуктивность: {intern.averageScore}%</span>
@@ -716,9 +711,7 @@ function AiSummaryView({ summary, onOpenIntern }: { summary: AiSummary; onOpenIn
       {summary.interns.map((intern) => (
         <button className="internAiCard" key={intern.user.id} onClick={() => onOpenIntern(intern.user.id)}>
           <div className="person">
-            <div className="avatar small" style={{ background: intern.user.avatarColor }}>
-              {intern.user.name.slice(0, 1)}
-            </div>
+            <Avatar small name={intern.user.name} avatarColor={intern.user.avatarColor} avatarUrl={intern.user.avatarUrl} />
             <div>
               <strong>{intern.user.name}</strong>
               <span>{intern.user.categoryLabel || "департамент не выбран"}</span>
@@ -1243,6 +1236,27 @@ function InternProfileView({ profile, onBack }: { profile: InternProfile; onBack
         <Metric icon={<CalendarCheck />} label="Посещений" value={profile.stats.attendanceCount} />
         <Metric icon={<MapPin />} label="В офисе" value={profile.stats.officeAttendanceCount || 0} />
         <Metric icon={<Users />} label="Блокеров" value={profile.stats.blockerReports} />
+      </div>
+
+      <div className="panel">
+        <div className="sectionTitleLine">
+          <div>
+            <span>Telegram</span>
+            <h2>Характер и общение в чате</h2>
+          </div>
+          <MessageCircle size={20} />
+        </div>
+        {profile.user.telegramActivityMessages ? (
+          <>
+            <div className="metrics">
+              <Metric icon={<MessageCircle />} label="Сообщений в группе" value={profile.user.telegramActivityMessages} />
+              <Metric icon={<Sparkles />} label="Индекс активности" value={`${profile.user.telegramActivityScore ?? 0}/100`} />
+            </div>
+            <p>{profile.user.telegramActivitySummary || "Бот ещё формирует сводку о характере по сообщениям в группе."}</p>
+          </>
+        ) : (
+          <p className="mutedText">Бот пока не видел сообщений этого стажёра в Telegram-группе. Добавьте бота в общий чат департамента — он начнёт собирать активность и формировать AI-сводку о характере.</p>
+        )}
       </div>
 
       <section className="split">

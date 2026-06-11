@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Sparkles, UserCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type AssignmentApplyResult, type AssignmentDraft, type AssignmentDraftItem, type Plan } from "../api";
+import { Avatar } from "./Avatar";
 
 export function AssignmentDraftPanel({ plan, onApplied }: { plan: Plan | null; onApplied: (plan: Plan) => void }) {
   const [draft, setDraft] = useState<AssignmentDraft | null>(null);
@@ -101,9 +102,7 @@ export function AssignmentDraftPanel({ plan, onApplied }: { plan: Plan | null; o
                   </div>
                   <p>{item.stepDescription || "Описание шага не заполнено."}</p>
                   <div className="person compactPerson">
-                    <div className="avatar small" style={{ background: item.recommendedUser.avatarColor }}>
-                      {item.recommendedUser.name.slice(0, 1)}
-                    </div>
+                    <Avatar small name={item.recommendedUser.name} avatarColor={item.recommendedUser.avatarColor} avatarUrl={item.recommendedUser.avatarUrl} />
                     <div>
                       <strong>{item.recommendedUser.name}</strong>
                       <span>{item.recommendedUser.categoryLabel || "департамент не выбран"}</span>

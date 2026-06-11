@@ -13,6 +13,7 @@ import { PlanFitMatrix } from "../components/PlanFitMatrix";
 import { ReportList } from "../components/ReportList";
 import { RoleHomeDashboard, type HomeAlert } from "../components/RoleHomeDashboard";
 import { groupInternsByStage } from "../internStages";
+import { Avatar } from "../components/Avatar";
 import { ShellLoading } from "../components/ShellLoading";
 import { TelegramGroupsPanel } from "../components/TelegramGroupsPanel";
 import { TelegramHelp } from "../components/TelegramHelp";
@@ -956,9 +957,7 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
               <div className="rowWithActions" key={intern.id}>
                 <button className="row clickableRow" onClick={() => onOpenIntern(intern.id)}>
                   <div className="person">
-                    <div className="avatar small" style={{ background: intern.avatarColor }}>
-                      {intern.name.slice(0, 1)}
-                    </div>
+                    <Avatar small name={intern.name} avatarColor={intern.avatarColor} avatarUrl={intern.avatarUrl} />
                     <div>
                       <strong>{intern.name}</strong>
                       <span>{intern.categoryLabel}</span>
@@ -1000,9 +999,7 @@ function InternsPanel({ dashboard, onOpenIntern }: { dashboard: Dashboard; onOpe
                         ]} />
                       </div>
                       <div className="person" style={{ margin: "12px 0" }}>
-                        <div className="avatar small" style={{ background: intern.avatarColor }}>
-                          {intern.name.slice(0, 1)}
-                        </div>
+                        <Avatar small name={intern.name} avatarColor={intern.avatarColor} avatarUrl={intern.avatarUrl} />
                         <div>
                           <strong>{intern.name}</strong>
                           <span style={{ fontSize: "12px" }}>Продуктивность: {intern.averageScore}%</span>
@@ -1044,9 +1041,7 @@ function AiSummaryView({ summary, onOpenIntern }: { summary: AiSummary; onOpenIn
         {summary.interns.map((intern) => (
           <button className="internAiCard" key={intern.user.id} onClick={() => onOpenIntern(intern.user.id)}>
             <div className="person">
-              <div className="avatar small" style={{ background: intern.user.avatarColor }}>
-                {intern.user.name.slice(0, 1)}
-              </div>
+              <Avatar small name={intern.user.name} avatarColor={intern.user.avatarColor} avatarUrl={intern.user.avatarUrl} />
               <div>
                 <strong>{intern.user.name}</strong>
                 <span>{intern.user.categoryLabel}</span>
