@@ -5453,3 +5453,28 @@ label {
   display: grid;
   gap: 14px;
 }
+
+.telegramLoginDivider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.telegramLoginDivider::before,
+.telegramLoginDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.telegramLoginButton {
+  display: flex;
+  justify-content: center;
+}

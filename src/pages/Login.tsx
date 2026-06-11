@@ -2,6 +2,7 @@ import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, setToken } from "../api";
 import type { Session } from "../session";
+import { TelegramLoginButton } from "../components/TelegramLoginButton";
 
 function getRegistrationMeta() {
   const params = new URLSearchParams(window.location.search);
@@ -121,6 +122,8 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
               <CheckCircle2 size={18} />
               Войти
             </button>
+            <div className="telegramLoginDivider"><span>или</span></div>
+            <TelegramLoginButton onLogin={onLogin} onError={setError} />
           </form>
         )}
 
