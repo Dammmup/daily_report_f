@@ -4,6 +4,7 @@ import { api, clearToken, getToken, setToken, uploadFile, type User } from "./ap
 import { ShellLoading } from "./components/ShellLoading";
 import { TelegramHelp } from "./components/TelegramHelp";
 import { TelegramGroupsPanel } from "./components/TelegramGroupsPanel";
+import { TelegramWebhookPanel } from "./components/TelegramWebhookPanel";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { DepartmentSelect } from "./pages/DepartmentSelect";
 import { InternDashboard } from "./pages/InternDashboard";
@@ -376,6 +377,7 @@ function ProfileSettings({ user, onUser, onClose }: { user: User; onUser: (user:
           {activeSection === "telegram" && (
             <div className="settingsTelegramSection">
               <TelegramHelp user={user} compact />
+              {user.role === "admin" && <TelegramWebhookPanel />}
               {(user.role === "lead" || user.role === "admin") && <TelegramGroupsPanel />}
             </div>
           )}
